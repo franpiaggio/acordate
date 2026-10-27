@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Acordate: diagramas de acordes</title>
+  <meta name="description" content="Dibuja diagramas de acordes para guitarra y ukelele, escúchalos y descárgalos en PNG o SVG.">
+  <meta name="theme-color" content="#F1F2EE" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#16181B" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%232E46E8'/%3E%3Cpath d='M10 8v16M16 8v16M22 8v16M8 12h16M8 18h16' stroke='%23fff' stroke-width='1.6'/%3E%3Ccircle cx='16' cy='15' r='3.2' fill='%23fff'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css?v=16">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="Acordate, inicio">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9"/><path d="M10 8v16M16 8v16M22 8v16M8 12h16M8 18h16"/><circle cx="16" cy="15" r="3.2"/></svg>
+      <span>acordate</span>
+    </a>
+    <nav class="views" aria-label="Secciones">
+      <button data-view="editor" aria-current="page">Editor</button>
+      <button data-view="favs">Favoritos <span class="count" id="fav-count" hidden></span></button>
+    </nav>
+    <div class="topbar-end">
+      <button class="icon-btn" id="open-settings" aria-label="Ajustes" aria-haspopup="dialog" title="Ajustes">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.3 3.6a1.7 1.7 0 0 1 3.4 0l.1.8a1.7 1.7 0 0 0 2.5 1.1l.7-.4a1.7 1.7 0 0 1 2.4 2.4l-.4.7a1.7 1.7 0 0 0 1.1 2.5l.8.1a1.7 1.7 0 0 1 0 3.4l-.8.1a1.7 1.7 0 0 0-1.1 2.5l.4.7a1.7 1.7 0 0 1-2.4 2.4l-.7-.4a1.7 1.7 0 0 0-2.5 1.1l-.1.8a1.7 1.7 0 0 1-3.4 0l-.1-.8a1.7 1.7 0 0 0-2.5-1.1l-.7.4a1.7 1.7 0 0 1-2.4-2.4l.4-.7a1.7 1.7 0 0 0-1.1-2.5l-.8-.1a1.7 1.7 0 0 1 0-3.4l.8-.1a1.7 1.7 0 0 0 1.1-2.5l-.4-.7a1.7 1.7 0 0 1 2.4-2.4l.7.4a1.7 1.7 0 0 0 2.5-1.1l.1-.8Z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+      <button class="icon-btn" id="theme" aria-label="Cambiar tema">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path class="sun" d="M12 4V2M12 22v-2M4 12H2m20 0h-2M5.6 5.6 4.2 4.2m15.6 15.6-1.4-1.4M5.6 18.4l-1.4 1.4M19.8 4.2l-1.4 1.4M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z"/><path class="moon" d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="layout" id="view-editor">
+    <section class="stage" aria-label="Editor del acorde">
+      <div class="stage-top">
+        <div class="seg small" role="radiogroup" aria-label="Instrumento" id="instrument">
+          <button role="radio" data-value="guitar" aria-checked="true">Guitarra</button>
+          <button role="radio" data-value="ukulele" aria-checked="false">Ukelele</button>
+        </div>
+        <div class="edit-tools">
+          <div class="seg small" role="radiogroup" aria-label="Qué muestran los puntos" id="labels">
+            <button role="radio" data-value="fingers" aria-checked="true" title="Qué dedo pisa cada nota">Dedos</button>
+            <button role="radio" data-value="degrees" aria-checked="false" title="Grado de cada nota respecto de la tónica: 1, 3, 5…">Grados</button>
+          </div>
+          <button class="text-btn" id="auto-fingers" hidden>Dedos automáticos</button>
+          <button class="text-btn" id="clear">Vaciar</button>
+        </div>
+      </div>
+      <div class="stage-head">
+        <label class="visually-hidden" for="name">Nombre del acorde</label>
+        <input id="name" class="chord-name" value="D" spellcheck="false" autocomplete="off" maxlength="24">
+        <p class="detected" id="detected" aria-live="polite"></p>
+      </div>
+
+      <div class="board-wrap">
+        <div class="board" id="board"></div>
+        <div class="finger-pop" id="finger-pop" role="dialog" aria-label="Editar nota" hidden>
+          <div class="finger-pop-row" id="finger-options" role="group" aria-label="Dedo">
+            <button data-finger="1" title="Índice">1</button>
+            <button data-finger="2" title="Medio">2</button>
+            <button data-finger="3" title="Anular">3</button>
+            <button data-finger="4" title="Meñique">4</button>
+            <button data-finger="T" title="Pulgar">T</button>
+          </div>
+          <span class="finger-pop-sep" aria-hidden="true"></span>
+          <button class="finger-pop-remove" id="remove-note" aria-label="Quitar nota" title="Quitar nota">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 4h4M8 7l.7 11.2a1.5 1.5 0 0 0 1.5 1.3h3.6a1.5 1.5 0 0 0 1.5-1.3L16 7M10.5 10.5v6M13.5 10.5v6"/></svg>
+          </button>
+        </div>
+        <div class="window-ctl" aria-label="Posición en el mástil">
+          <button class="icon-btn small" id="fret-up" aria-label="Subir por el mástil"><svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg></button>
+          <output id="fret-label" aria-live="polite">Auto</output>
+          <button class="icon-btn small" id="fret-down" aria-label="Bajar por el mástil"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+        </div>
+      </div>
+
+      <div class="actions" id="actions">
+        <button class="btn primary" id="play" aria-keyshortcuts="Space">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 7 5.5Z"/></svg>
+          <span>Escuchar</span>
+        </button>
+        <button class="btn" id="download">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg>
+          <span>Descargar</span>
+        </button>
+        <button class="btn fav" id="fav" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20Z"/></svg>
+          <span id="fav-label">Guardar</span>
+        </button>
+        <span class="spacer"></span>
+        <button class="btn icon-only" id="copy" aria-label="Copiar imagen" title="Copiar imagen">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="3"/><path d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8"/></svg>
+          <span>Copiar</span>
+        </button>
+        <button class="btn icon-only" id="share" aria-label="Copiar enlace" title="Copiar enlace">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/></svg>
+          <span>Enlace</span>
+        </button>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <section class="block" aria-labelledby="find-title">
+        <h2 id="find-title">Buscar acorde</h2>
+        <div class="search">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>
+          <input id="search" type="search" placeholder="Escribe un acorde, p. ej. F#m7" autocomplete="off" spellcheck="false" aria-keyshortcuts="/">
+          <kbd>/</kbd>
+        </div>
+        <div class="roots" id="roots" role="radiogroup" aria-label="Tónica"></div>
+        <div class="qualities" id="qualities" role="radiogroup" aria-label="Tipo"></div>
+        <div class="voicings-head">
+          <h3 id="voicings-title">Posiciones</h3>
+          <span id="voicings-count"></span>
+        </div>
+        <div class="voicings" id="voicings" role="list"></div>
+      </section>
+
+      <section class="block" aria-labelledby="code-title">
+        <h2 id="code-title">Código del acorde</h2>
+        <dl class="code-read">
+          <div><dt>Trastes</dt><dd id="code-frets"></dd></div>
+          <div><dt>Dedos</dt><dd id="code-fingers"></dd></div>
+          <button class="icon-btn small" id="copy-code" aria-label="Copiar código" title="Copiar código">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="3"/><path d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8"/></svg>
+          </button>
+        </dl>
+      </section>
+    </aside>
+
+  </main>
+
+  <main class="favs" id="view-favs" hidden>
+    <div class="favs-head" id="favs-head">
+      <div>
+        <h1 class="visually-hidden">Favoritos</h1>
+        <p class="note" id="favs-note"></p>
+      </div>
+      <div class="favs-actions" id="favs-actions">
+        <button class="btn" id="favs-download">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg>
+          <span>Descargar todos</span>
+        </button>
+        <button class="text-btn" id="favs-clear">Vaciar favoritos</button>
+      </div>
+    </div>
+    <ol class="favs-grid" id="favs"></ol>
+    <div class="favs-empty" id="favs-empty" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20Z"/></svg>
+      <h2>Todavía no guardaste acordes</h2>
+      <p class="note">En el editor, toca <b>Guardar</b> y el acorde aparece acá. Desde acá puedes abrirlos o descargarlos todos en una sola imagen.</p>
+      <button class="btn primary" data-view="editor">Ir al editor</button>
+    </div>
+  </main>
+
+
+
+  <dialog class="settings" id="settings" aria-labelledby="settings-title">
+    <div class="settings-head">
+      <h2 id="settings-title">Ajustes</h2>
+      <button class="icon-btn small" id="close-settings" aria-label="Cerrar ajustes">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <div class="settings-body">
+        <section class="block" aria-labelledby="look-title">
+          <h2 id="look-title">Diagrama</h2>
+          <div class="rows">
+            <label class="row">
+              <span>Trastes visibles</span>
+              <span class="stepper">
+                <button class="icon-btn small" data-step="-1" aria-label="Menos trastes"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
+                <output id="rows-out">5</output>
+                <button class="icon-btn small" data-step="1" aria-label="Más trastes"><svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></button>
+              </span>
+            </label>
+            <label class="row switch"><span>Números en los puntos</span><input type="checkbox" id="opt-fingers" checked></label>
+            <label class="row switch"><span>Nombres de las notas</span><input type="checkbox" id="opt-notes"></label>
+            <label class="row switch"><span>Tónica en color</span><input type="checkbox" id="opt-root"></label>
+            <label class="row switch"><span>Cejilla completa</span><input type="checkbox" id="opt-barre"></label>
+            <label class="row switch"><span>Para zurdos</span><input type="checkbox" id="opt-lefty"></label>
+            <label class="row switch"><span>Sonar al editar</span><input type="checkbox" id="opt-sound" checked></label>
+          </div>
+        </section>
+
+        <section class="block" aria-labelledby="export-title">
+          <h2 id="export-title">Descarga</h2>
+          <div class="rows">
+            <div class="row">
+              <span>Formato</span>
+              <div class="seg small" role="radiogroup" aria-label="Formato" id="format">
+                <button role="radio" data-value="png" aria-checked="true">PNG</button>
+                <button role="radio" data-value="svg" aria-checked="false">SVG</button>
+              </div>
+            </div>
+            <div class="row">
+              <span>Tamaño</span>
+              <div class="seg small" role="radiogroup" aria-label="Tamaño" id="size">
+                <button role="radio" data-value="1" aria-checked="false">S</button>
+                <button role="radio" data-value="2" aria-checked="true">M</button>
+                <button role="radio" data-value="3" aria-checked="false">L</button>
+                <button role="radio" data-value="5" aria-checked="false">XL</button>
+              </div>
+            </div>
+            <div class="row">
+              <span>Fondo</span>
+              <div class="seg small" role="radiogroup" aria-label="Fondo" id="bg">
+                <button role="radio" data-value="light" aria-checked="true">Claro</button>
+                <button role="radio" data-value="dark" aria-checked="false">Oscuro</button>
+                <button role="radio" data-value="none" aria-checked="false">Sin fondo</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/theory.js?v=16"></script>
+  <script src="js/render.js?v=16"></script>
+  <script src="js/audio.js?v=16"></script>
+  <script src="js/app.js?v=16"></script>
+</body>
+</html>
