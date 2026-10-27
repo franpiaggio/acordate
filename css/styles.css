@@ -572,6 +572,12 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 .ce-side { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
 .ce-section[hidden] { display: none; }
 .ce-section h3 { font-size: 13px; font-weight: 600; color: var(--soft); margin-bottom: 8px; }
+.search.small input { padding: 10px 8px; font-size: 15px; }
+.search.small svg { margin-left: 12px; width: 17px; height: 17px; }
+.ce-roots { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; margin-top: 10px; }
+.ce-roots button { height: 36px; border: 0; background: transparent; border-radius: 10px; font-weight: 700; font-size: 15px; }
+.ce-roots button:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.ce-roots button[aria-checked="true"] { background: var(--ink); color: var(--surface); }
 .ce-qualities { display: flex; flex-wrap: wrap; gap: 4px; }
 .ce-qualities button {
   border: 0; background: color-mix(in srgb, var(--ink) 5%, transparent); border-radius: 10px;

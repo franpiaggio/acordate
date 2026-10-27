@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css?v=22">
+  <link rel="stylesheet" href="css/styles.css?v=23">
 </head>
 <body>
   <header class="topbar">
@@ -266,6 +266,13 @@
         </div>
       </div>
       <div class="ce-side">
+        <div class="ce-section">
+          <div class="search small">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>
+            <input id="ce-search" type="search" placeholder="Busca un acorde, p. ej. F#m7" autocomplete="off" spellcheck="false" aria-label="Buscar acorde">
+          </div>
+          <div class="ce-roots" id="ce-roots" role="radiogroup" aria-label="Tónica"></div>
+        </div>
         <div class="ce-section" id="ce-variants-wrap">
           <h3>Variantes</h3>
           <div class="ce-qualities" id="ce-qualities"></div>
@@ -351,10 +358,10 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="js/theory.js?v=22"></script>
-  <script src="js/render.js?v=22"></script>
-  <script src="js/audio.js?v=22"></script>
-  <script src="js/app.js?v=22"></script>
-  <script src="js/composer.js?v=22"></script>
+  <script src="js/theory.js?v=23"></script>
+  <script src="js/render.js?v=23"></script>
+  <script src="js/audio.js?v=23"></script>
+  <script src="js/app.js?v=23"></script>
+  <script src="js/composer.js?v=23"></script>
 </body>
 </html>

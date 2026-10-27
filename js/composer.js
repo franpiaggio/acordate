@@ -681,6 +681,7 @@
     ed.startFret = null;
     ed.target = barIndex;
     $('ce-name').value = ed.name;
+    $('ce-search').value = '';
     const into = barIndex ?? selected ?? comp.bars.findIndex(b => !b);
     $('ce-save').textContent = barIndex != null ? 'Guardar cambios' : into >= 0 ? `Agregar al compás ${into + 1}` : 'Agregar al final';
     renderEditor();
@@ -714,7 +715,29 @@
   const VARIANT_QUALITIES = ['', 'm', '7', 'maj7', 'm7', 'sus2', 'sus4', 'add9', '6', '9', 'dim', 'aug'];
 
   /** Other chord types on the same root, and other places to play the current one. */
+  /** Load a chord by root and type into the editor, using its most common shape. */
+  function pickChord(root, quality) {
+    const v = T.findVoicings(root, quality, A.instrument())[0];
+    const name = T.chordName(root, quality);
+    ed.name = name;
+    ed.nameAuto = false;
+    $('ce-name').value = name;
+    if (v) { ed.frets = v.frets.slice(); ed.startFret = null; }
+    renderEditor();
+    S.strum(notesOf({ frets: ed.frets }));
+  }
+
   function renderVariants(parsed) {
+    const roots = $('ce-roots');
+    roots.innerHTML = '';
+    T.NOTES.forEach((n, i) => {
+      const b = document.createElement('button');
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', String(!!parsed && parsed.root === i));
+      b.textContent = pretty(n);
+      b.onclick = () => pickChord(i, parsed ? parsed.quality : (comp.mode === 'minor' && i === comp.key ? 'm' : ''));
+      roots.append(b);
+    });
     $('ce-variants-wrap').hidden = !parsed;
     $('ce-voicings-wrap').hidden = !parsed;
     if (!parsed) return;
@@ -725,15 +748,7 @@
       const name = T.chordName(parsed.root, q);
       b.textContent = pretty(name);
       b.setAttribute('aria-pressed', String(q === parsed.quality));
-      b.onclick = () => {
-        const v = T.findVoicings(parsed.root, q, A.instrument())[0];
-        ed.name = name;
-        ed.nameAuto = false;
-        $('ce-name').value = name;
-        if (v) { ed.frets = v.frets.slice(); ed.startFret = null; }
-        renderEditor();
-        S.strum(notesOf({ frets: ed.frets }));
-      };
+      b.onclick = () => pickChord(parsed.root, q);
       box.append(b);
     });
     const list = $('ce-voicings');
@@ -769,6 +784,15 @@
     else ed.frets[s] = ed.frets[s] === +t.dataset.f ? 0 : +t.dataset.f;
     renderEditor();
     if (A.prefs.sound && ed.frets[s] >= 0) S.pluck(T.INSTRUMENTS[A.instrument()].midi[s] + ed.frets[s]);
+  });
+  $('ce-search').addEventListener('input', e => {
+    const c = T.parseChordName(e.target.value);
+    if (c) pickChord(c.root, c.quality);
+  });
+  $('ce-search').addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (!T.parseChordName(e.target.value)) A.toast('No reconozco ese acorde. Prueba con C, Am7 o F#maj7.');
   });
   $('ce-name').addEventListener('input', e => { ed.name = e.target.value; ed.nameAuto = !ed.name.trim(); renderEditor(); });
   $('ce-up').addEventListener('click', () => { ed.startFret = Math.max(1, D.windowStart(edChord(), A.prefs.rows) - 1); renderEditor(); });
