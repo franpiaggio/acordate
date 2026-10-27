@@ -30,7 +30,7 @@ Acordate es un generador de diagramas de acordes. Tocas el diapasón, escuchas c
 - Cada acorde trae varias posiciones a lo largo del mástil, con las formas abiertas más conocidas primero.
 
 **Escuchar**
-- El acorde suena con muestras grabadas de guitarra acústica, y cada cuerda suena mientras editas.
+- El acorde suena con grabaciones reales de cada cuerda en tres intensidades, y cada cuerda suena mientras editas.
 
 **Descargar y compartir**
 - PNG en cuatro tamaños o SVG, con fondo claro, oscuro o transparente. La tipografía va incluida en el archivo.
@@ -98,11 +98,13 @@ js/render.js        dibuja los diagramas en SVG (editor, miniaturas y descargas)
 js/audio.js         reproducción con muestras y sintetizador de respaldo
 js/app.js           estado, interfaz, vistas, enlaces, descargas y favoritos
 js/composer.js      compositor: tonalidad, compases, reproducción y exportación
-assets/samples/     13 muestras de guitarra acústica
+assets/guitar/      grabaciones por cuerda (trastes 0 a 12, tres intensidades) y su tabla de volumen
+assets/samples/     13 muestras de respaldo
 docs/               capturas para este README
 ```
 
 ## Créditos
 
-- Sonido de guitarra: [tonejs-instruments](https://github.com/nbrosowsky/tonejs-instruments), bajo licencia [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
+- Sonido de guitarra por cuerda: grabaciones de guitarra de los [University of Iowa Musical Instrument Samples](https://theremin.music.uiowa.edu/MISguitar.html), de uso libre.
+- Sonido de respaldo: [tonejs-instruments](https://github.com/nbrosowsky/tonejs-instruments), bajo licencia [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
 - Tipografía: [Schibsted Grotesk](https://fonts.google.com/specimen/Schibsted+Grotesk).

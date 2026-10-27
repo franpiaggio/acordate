@@ -141,7 +141,7 @@
   function pluckString(s) {
     if (!prefs.sound) return;
     const f = state.frets[s];
-    if (f >= 0) window.Sound.pluck(inst().midi[s] + f);
+    if (f >= 0) window.Sound.pluck(inst().midi[s] + f, s);
   }
 
   $('board').addEventListener('click', e => {
@@ -326,6 +326,7 @@
   function switchInstrument(id) {
     if (id === state.instrument) return;
     state.instrument = id;
+    window.Sound.setInstrument(id);
     const parsed = T.parseChordName(state.name) || { root: state.lib.root, quality: state.lib.quality };
     const v = T.findVoicings(parsed.root, parsed.quality, id)[0];
     const n = T.INSTRUMENTS[id].strings.length;
@@ -630,7 +631,7 @@
   /* ---------- Sound ---------- */
 
   function play() {
-    const notes = state.frets.map((f, s) => (f >= 0 ? inst().midi[s] + f : null)).filter(n => n != null);
+    const notes = state.frets.map((f, s) => (f >= 0 ? { m: inst().midi[s] + f, s } : null)).filter(Boolean);
     if (!notes.length) { toast('Todas las cuerdas están apagadas'); return; }
     // Ukulele is re-entrant, so strum in string order rather than by pitch.
     window.Sound.strum(notes);
@@ -794,6 +795,7 @@
   /* ---------- Start ---------- */
 
   if (readHash()) setInstrument(state.instrument);
+  window.Sound.setInstrument(state.instrument);
   renderLibrary();
   renderFavs();
   update({ hash: false });

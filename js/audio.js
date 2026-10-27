@@ -55,6 +55,99 @@
     return Promise.race([loadSamples(), new Promise(res => setTimeout(() => res(null), timeout))]);
   }
 
+  /*
+   * Per-string recordings (University of Iowa MIS guitar): every string, frets 0-12, in three
+   * dynamics. Loaded on demand; until a note arrives the shared samples above stand in.
+   */
+  const STRING_DIR = 'assets/guitar/';
+  const GUITAR_OPEN = [40, 45, 50, 55, 59, 64];
+  const MAX_FRET = 12;
+  const stringBufs = new Map();   // "string-fret-dyn" -> AudioBuffer | Promise
+  let instrument = 'guitar';
+  let manifest = null;            // "string-fret-dyn" -> loudness correction
+  let manifestLoading = null;
+  // Brings the recordings to the same loudness as the shared samples.
+  const STRING_LEVEL = 1.3;
+
+  function loadManifest() {
+    manifestLoading ||= fetch(STRING_DIR + 'manifest.json')
+      .then(r => (r.ok ? r.json() : null))
+      .then(m => { manifest = m; return m; })
+      .catch(() => null);
+    return manifestLoading;
+  }
+
+  /** The recording to use: the wanted dynamic, then the others, then a neighbouring fret. */
+  function pickKey(s, fret, dyn) {
+    if (!manifest) return null;
+    const dyns = [dyn, ...['mf', 'ff', 'pp'].filter(d => d !== dyn)];
+    for (const df of [0, -1, 1]) {
+      const f = fret + df;
+      if (f < 0 || f > MAX_FRET) continue;
+      for (const d of dyns) if (manifest[`${s}-${f}-${d}`]) return { key: `${s}-${f}-${d}`, shift: -df };
+    }
+    return null;
+  }
+
+  const dynFor = gain => (gain > 0.62 ? 'ff' : gain > 0.36 ? 'mf' : 'pp');
+
+  /** Guitar string and fret for a note: its own string on guitar, the best-fitting one otherwise. */
+  function placement(midi, string) {
+    if (instrument === 'guitar' && string != null) {
+      const fret = midi - GUITAR_OPEN[string];
+      if (fret >= 0 && fret <= MAX_FRET + 4) return { s: string, fret };
+    }
+    // Ukulele and loose notes: the highest guitar string that can play it low on the neck.
+    for (let s = 5; s >= 0; s--) {
+      const fret = midi - GUITAR_OPEN[s];
+      if (fret >= 0 && fret <= 7) return { s, fret };
+    }
+    return null;
+  }
+
+  function loadString(key) {
+    if (stringBufs.has(key)) return stringBufs.get(key);
+    const c = context();
+    const p = fetch(STRING_DIR + key + '.mp3')
+      .then(r => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(key))))
+      .then(data => new Promise((resolve, reject) => c.decodeAudioData(data, resolve, reject)))
+      .then(buf => { stringBufs.set(key, buf); return buf; })
+      .catch(() => { stringBufs.set(key, null); return null; });
+    stringBufs.set(key, p);
+    return p;
+  }
+
+  /** Buffer, pitch shift and loudness for a recorded string note, or null if not loaded (yet). */
+  function stringSample(midi, string, gain) {
+    if (!manifest) { loadManifest(); return null; }
+    const at = placement(midi, string);
+    if (!at) return null;
+    const fret = Math.min(at.fret, MAX_FRET);
+    const pick = pickKey(at.s, fret, dynFor(gain));
+    if (!pick) return null;
+    const buf = stringBufs.get(pick.key);
+    if (!(buf instanceof AudioBuffer)) { loadString(pick.key); return null; }
+    return { buf, semis: at.fret - fret + pick.shift, level: manifest[pick.key] * STRING_LEVEL };
+  }
+
+  /** Fetch the recordings a set of notes will need, in every dynamic. */
+  async function preload(notes, timeout = 2500) {
+    context();
+    const work = loadManifest().then(() => {
+      const jobs = [];
+      notes.forEach(n => {
+        const at = placement(typeof n === 'number' ? n : n.m, typeof n === 'number' ? null : n.s);
+        if (!at) return;
+        ['pp', 'mf', 'ff'].forEach(d => {
+          const pick = pickKey(at.s, Math.min(at.fret, MAX_FRET), d);
+          if (pick) jobs.push(loadString(pick.key));
+        });
+      });
+      return Promise.all(jobs);
+    });
+    return Promise.race([work, new Promise(res => setTimeout(res, timeout))]);
+  }
+
   function nearestSample(midi) {
     let best = null;
     for (const m of samples.keys()) if (best == null || Math.abs(m - midi) < Math.abs(best - midi)) best = m;
@@ -112,7 +205,12 @@
     let level = gain;
     // A few cents of drift per note stands in for a real player's touch.
     const cents = (Math.random() - 0.5) * 8;
-    if (samples) {
+    const rec = stringSample(midi, string, gain);
+    if (rec) {
+      src.buffer = rec.buf;
+      src.playbackRate.value = Math.pow(2, (rec.semis + cents / 100) / 12);
+      level *= rec.level;
+    } else if (samples) {
       const base = nearestSample(midi);
       src.buffer = samples.get(base);
       src.playbackRate.value = Math.pow(2, (midi - base + cents / 100) / 12);
@@ -186,8 +284,8 @@
 
   /** Muted stroke ("chasquido"): the strumming hand slaps the strings, with a hint of pitch. */
   function chuckOn(c, dest, notes, when, gain = 0.6) {
-    const out = [burst(c, dest, when, { gain: gain * 0.35, freq: 1500, q: 0.7, decay: 0.07 })];
-    notes.forEach((n, i) => out.push(voice(c, dest, midiOf(n), when + i * 0.006, gain * 0.28, 0.035, stringOf(n))));
+    const out = [burst(c, dest, when, { gain: gain * 0.7, freq: 1500, q: 0.7, decay: 0.08 })];
+    notes.forEach((n, i) => out.push(voice(c, dest, midiOf(n), when + i * 0.006, gain * 0.5, 0.04, stringOf(n))));
     return out;
   }
 
@@ -197,13 +295,13 @@
 
   /** Strum a list of midi notes in string order (lowest string first). */
   async function strum(notes, gap = 0.04) {
-    await ready();
+    await Promise.all([ready(), preload(notes, 900)]);
     track(strumOn(ctx, master, notes, ctx.currentTime + 0.02, { gap }));
   }
 
-  async function pluck(midi) {
-    await ready(600);
-    track([voice(ctx, master, midi, ctx.currentTime + 0.01, 0.85, 2.6)]);
+  async function pluck(midi, string) {
+    await Promise.all([ready(600), preload([{ m: midi, s: string }], 600)]);
+    track([voice(ctx, master, midi, ctx.currentTime + 0.01, 0.85, 2.6, string)]);
   }
 
   /** Schedule a strum at an absolute time on the live context (for the sequencer). */
@@ -254,7 +352,7 @@
    * events: [{ time, notes, gain, up, ring }] or [{ time, click: true, accent }]
    */
   async function renderWav(events, seconds) {
-    await ready(4000);
+    await Promise.all([ready(4000), preload(events.flatMap(e => e.notes || []), 8000)]);
     const sr = 44100;
     const off = new OfflineAudioContext(2, Math.ceil(sr * seconds), sr);
     const dest = chain(off);
@@ -292,10 +390,12 @@
     window.removeEventListener('pointerdown', warm);
     context();
     loadSamples();
+    loadManifest();
   }, { once: true });
 
   window.Sound = {
-    strum, pluck, ready, strumAt, chuckAt, clickAt, stopAll, renderWav,
+    strum, pluck, ready, preload, strumAt, chuckAt, clickAt, stopAll, renderWav,
+    setInstrument: id => { instrument = id; },
     now: () => context().currentTime,
   };
 })();

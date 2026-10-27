@@ -410,7 +410,7 @@
    * Strumming styles on an eighth-note grid. D down, U up (top strings only), B bass note
    * (alt: the next string up), P one picked string: b/b2 bass side, r1..r3 from the top.
    */
-  const D_ = g => ({ k: 'D', g }), U_ = g => ({ k: 'U', g }), B_ = (g, alt) => ({ k: 'B', g, alt }), P_ = (r, g = 0.5) => ({ k: 'P', r, g });
+  const D_ = g => ({ k: 'D', g }), U_ = g => ({ k: 'U', g }), B_ = (g, alt) => ({ k: 'B', g, alt }), P_ = (r, g = 0.62) => ({ k: 'P', r, g });
   const X_ = g => ({ k: 'X', g }); // muted stroke
   const STYLES = {
     4: [
@@ -428,7 +428,8 @@
       { id: 'arpegio', label: 'Arpegio', slots: [P_('b', 0.72), P_('r3'), P_('r2'), P_('r1', 0.46), P_('r2'), P_('r3')] },
     ],
   };
-  comp.styles ||= { 4: 'balada', 3: 'vals' };
+  // "Un golpe" is the default; older saved settings move to it once.
+  if (!comp.styles || comp.stylesVersion !== 2) { comp.styles = { 4: 'suave', 3: 'suave' }; comp.stylesVersion = 2; }
   const style = () => STYLES[comp.meter].find(x => x.id === comp.styles[comp.meter]) || STYLES[comp.meter][0];
 
   const jitter = amount => (Math.random() - 0.5) * 2 * amount;
@@ -517,7 +518,7 @@
     if (comp.bars.every(b => !b)) { A.toast('Agrega acordes a los compases para escucharlos'); return; }
     playing = true;
     updatePlayButton();
-    await S.ready();
+    await Promise.all([S.ready(), S.preload(comp.bars.filter(Boolean).flatMap(notesOf), 3000)]);
     if (!playing) return;
     nextTime = S.now() + 0.08;
     step = 0;
@@ -810,7 +811,7 @@
     if (t.dataset.f === 'toggle') ed.frets[s] = ed.frets[s] === 0 ? -1 : 0;
     else ed.frets[s] = ed.frets[s] === +t.dataset.f ? 0 : +t.dataset.f;
     renderEditor();
-    if (A.prefs.sound && ed.frets[s] >= 0) S.pluck(T.INSTRUMENTS[A.instrument()].midi[s] + ed.frets[s]);
+    if (A.prefs.sound && ed.frets[s] >= 0) S.pluck(T.INSTRUMENTS[A.instrument()].midi[s] + ed.frets[s], s);
   });
   $('ce-search').addEventListener('input', e => {
     const c = T.parseChordName(e.target.value);
