@@ -115,7 +115,8 @@
   function strumOn(c, dest, notes, when, { gain = 0.8, up = false, ring = 2.6, gap } = {}) {
     const order = up ? notes.slice().reverse() : notes;
     const step = gap ?? (up ? 0.022 : 0.032);
-    return order.map((m, i) => voice(c, dest, m, when + i * step, gain - i * 0.03, ring));
+    // Each string sounds a touch different, like a real hand across the strings.
+    return order.map((m, i) => voice(c, dest, m, when + i * step * (0.85 + Math.random() * 0.3), (gain - i * 0.025) * (0.9 + Math.random() * 0.15), ring));
   }
 
   function track(voices) {

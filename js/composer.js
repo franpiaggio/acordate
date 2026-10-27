@@ -15,9 +15,13 @@
 
   const read = () => { try { return JSON.parse(localStorage.getItem(STORE)); } catch { return null; } };
   const comp = Object.assign(
-    { key: 0, mode: 'major', meter: 4, bpm: 90, sevenths: false, metro: false, bars: [null, null, null, null] },
+    { key: 0, mode: 'major', meter: 4, bpm: 90, sevenths: false, metro: false, bars: [null, null, null, null], custom: [] },
     read() || {},
   );
+  // A bar holds { name } for chords from the key, or { name, frets, fingers } for chords drawn by hand.
+  const norm = b => (!b ? null : typeof b === 'string' ? { name: b } : b);
+  comp.bars = comp.bars.map(norm);
+  comp.custom ||= [];
   const persist = () => { try { localStorage.setItem(STORE, JSON.stringify(comp)); } catch { /* storage unavailable */ } };
 
   let selected = null;
@@ -26,7 +30,9 @@
   /* ---------- Chord data ---------- */
 
   const voicingCache = new Map();
-  function voicing(name) {
+  function voicing(chord) {
+    if (chord.frets) return { frets: chord.frets, fingers: chord.fingers || T.autoFinger(chord.frets) || chord.frets.map(() => '') };
+    const name = chord.name;
     const key = A.instrument() + '|' + name;
     if (!voicingCache.has(key)) {
       const c = T.parseChordName(name);
@@ -34,18 +40,18 @@
     }
     return voicingCache.get(key);
   }
-  function notesOf(name) {
-    const v = voicing(name);
+  function notesOf(chord) {
+    const v = voicing(chord);
     if (!v) return [];
     const midi = T.INSTRUMENTS[A.instrument()].midi;
     return v.frets.map((f, s) => (f >= 0 ? midi[s] + f : null)).filter(n => n != null);
   }
   const keyChords = () => T.keyChords(comp.key, comp.mode, comp.sevenths);
 
-  function diagram(name, opts = {}) {
-    const v = voicing(name);
+  function diagram(chord, opts = {}) {
+    const v = voicing(chord);
     if (!v) return '';
-    const c = T.parseChordName(name);
+    const c = T.parseChordName(chord.name) || T.parseChordName(T.detect(v.frets, A.instrument()) || '');
     const p = A.prefs;
     return D.render({ instrument: A.instrument(), frets: v.frets, fingers: v.fingers }, {
       rows: p.rows, colors: A.colors(), showFingers: p.showFingers, labels: p.labels, lefty: p.lefty,
@@ -67,6 +73,14 @@
     $('bars-out').textContent = comp.bars.length;
     $('comp-sevenths').checked = comp.sevenths;
     $('comp-metro').setAttribute('aria-pressed', String(comp.metro));
+    renderStyles();
+  }
+
+  function renderStyles() {
+    const sel = $('comp-style');
+    sel.innerHTML = '';
+    STYLES[comp.meter].forEach(x => sel.add(new Option(x.label, x.id)));
+    sel.value = style().id;
   }
 
   function renderPalette() {
@@ -80,6 +94,19 @@
       b.title = k.borrowed ? `${k.name}: dominante prestada de la escala menor armónica` : k.name;
       box.append(b);
     });
+    comp.custom.forEach((c, i) => {
+      const b = document.createElement('button');
+      b.className = 'chip custom';
+      b.dataset.custom = i;
+      b.innerHTML = `<span class="roman">Tuyo</span><span class="name">${pretty(c.name)}</span>`;
+      b.title = `${c.name}: ${T.fretsCode(c.frets)}`;
+      box.append(b);
+    });
+    const add = document.createElement('button');
+    add.className = 'chip add';
+    add.id = 'comp-new';
+    add.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="name">Crear acorde</span>';
+    box.append(add);
     const presets = $('comp-presets');
     presets.innerHTML = '';
     PRESETS[comp.mode].forEach(p => {
@@ -96,22 +123,25 @@
     const list = $('comp-bars');
     list.innerHTML = '';
     const empty = comp.bars.every(b => !b);
-    comp.bars.forEach((name, i) => {
+    comp.bars.forEach((bar, i) => {
+      const name = bar?.name;
       const li = document.createElement('li');
       li.className = 'bar' + (name ? ' filled' : '') + (selected === i ? ' selected' : '');
       li.dataset.i = i;
       const roman = name ? T.romanIn(name, comp.key, comp.mode) : null;
       const beats = Array.from({ length: comp.meter }, () => '<i></i>').join('');
       li.innerHTML = `
-        <button class="bar-body" aria-label="Compás ${i + 1}${name ? ': ' + name : ', vacío'}">
+        <button class="bar-body" aria-label="Compás ${i + 1}${name ? ': ' + name + '. Abrir para cambiarlo' : ', vacío'}">
           <span class="bar-num">${i + 1}</span>
           ${name ? `
             <span class="bar-name">${pretty(name)}</span>
             <span class="bar-roman">${roman || 'fuera de la tonalidad'}</span>
-            <span class="bar-diagram">${diagram(name).svg || ''}</span>`
+            <span class="bar-diagram">${diagram(bar).svg || ''}</span>`
           : `<span class="bar-empty">${empty && i === 0 ? 'Arrastra un acorde acá o toca uno de arriba' : ''}</span>`}
         </button>
-        ${name ? `<button class="bar-clear" aria-label="Quitar ${name} del compás ${i + 1}"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>` : ''}
+        ${name ? `<span class="bar-tools">
+          <button class="bar-clear" aria-label="Quitar ${name} del compás ${i + 1}"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        </span>` : ''}
         <span class="beats" aria-hidden="true">${beats}</span>`;
       list.append(li);
     });
@@ -132,13 +162,8 @@
 
   /* ---------- Editing ---------- */
 
-  function setBar(i, name) {
-    comp.bars[i] = name;
-    changed();
-  }
-
   /** Tapping a chord fills the selected bar, or the first empty one, then moves on. */
-  function addChord(name) {
+  function addChord(chord) {
     let i = selected ?? comp.bars.findIndex(b => !b);
     if (i === -1) {
       if (comp.bars.length >= MAX_BARS) { A.toast('Llegaste al máximo de compases'); return; }
@@ -146,17 +171,17 @@
       i = comp.bars.length - 1;
       $('bars-out').textContent = comp.bars.length;
     }
-    comp.bars[i] = name;
+    comp.bars[i] = { ...chord };
     selected = i + 1 < comp.bars.length ? i + 1 : null;
     changed();
-    if (!playing) S.strum(notesOf(name));
+    if (!playing) S.strum(notesOf(chord));
   }
 
   function applyPreset(romans) {
     const chords = keyChords();
     const byRoman = r => chords.find(k => k.roman === r && (r !== 'V' || comp.mode === 'major' || k.borrowed));
     const names = romans.map(r => byRoman(r)?.name || null);
-    comp.bars = comp.bars.map((_, i) => names[i % names.length]);
+    comp.bars = comp.bars.map((_, i) => (names[i % names.length] ? { name: names[i % names.length] } : null));
     selected = null;
     changed();
   }
@@ -164,7 +189,9 @@
   $('comp-chips').addEventListener('click', e => {
     if (suppressClick) return;
     const chip = e.target.closest('.chip');
-    if (chip) addChord(chip.dataset.name);
+    if (!chip) return;
+    if (chip.id === 'comp-new') { openEditor(null); return; }
+    addChord(chipChord(chip));
   });
 
   $('comp-bars').addEventListener('click', e => {
@@ -177,9 +204,13 @@
       changed();
       return;
     }
+    if (comp.bars[i]) {
+      if (!playing) S.strum(notesOf(comp.bars[i]));
+      openEditor(i);
+      return;
+    }
     selected = selected === i ? null : i;
     renderBars();
-    if (comp.bars[i] && !playing) S.strum(notesOf(comp.bars[i]));
   });
 
   /* ---------- Drag and drop (mouse drags at once, touch after a short hold) ---------- */
@@ -189,12 +220,12 @@
 
   function onPointerDown(e) {
     if (e.button !== 0) return;
-    const chip = e.target.closest('.chip');
+    const chip = e.target.closest('.chip:not(.add)');
     const bar = e.target.closest('.bar.filled');
     if (!chip && !bar) return;
-    if (e.target.closest('.bar-clear')) return;
-    const name = chip ? chip.dataset.name : comp.bars[+bar.dataset.i];
-    drag = { name, from: bar ? +bar.dataset.i : null, x: e.clientX, y: e.clientY, id: e.pointerId, active: false, el: chip || bar };
+    if (e.target.closest('.bar-tools')) return;
+    const chord = chip ? chipChord(chip) : comp.bars[+bar.dataset.i];
+    drag = { chord, name: chord.name, from: bar ? +bar.dataset.i : null, x: e.clientX, y: e.clientY, id: e.pointerId, active: false, el: chip || bar };
     if (e.pointerType === 'touch') {
       drag.timer = setTimeout(() => startDrag(drag.x, drag.y), 220);
     }
@@ -240,16 +271,16 @@
   function onPointerUp(e) {
     if (!drag || e.pointerId !== drag.id) return;
     if (drag.active) {
-      const { name, from, over, outside } = drag;
+      const { chord, name, from, over, outside } = drag;
       if (over != null && over !== from) {
         if (from != null) [comp.bars[from], comp.bars[over]] = [comp.bars[over], comp.bars[from]];
-        else comp.bars[over] = name;
+        else comp.bars[over] = { ...chord };
         selected = null;
         changed();
       } else if (from != null && outside) {
         comp.bars[from] = null;
         changed();
-        A.toast(`${name} quitado del compás ${from + 1}`, () => { comp.bars[from] = name; changed(); });
+        A.toast(`${name} quitado del compás ${from + 1}`, () => { comp.bars[from] = chord; changed(); });
       }
       suppressClick = true;
       setTimeout(() => { suppressClick = false; }, 0);
@@ -290,7 +321,8 @@
     return set;
   }
   const setMode = segmented('comp-mode', v => { comp.mode = v; renderPalette(); changed(); });
-  const setMeter = segmented('comp-meter', v => { comp.meter = +v; changed(); });
+  const setMeter = segmented('comp-meter', v => { comp.meter = +v; renderStyles(); changed(); });
+  $('comp-style').addEventListener('change', e => { comp.styles[comp.meter] = e.target.value; changed({ bars: false }); });
 
   $('comp-key').addEventListener('change', e => { comp.key = +e.target.value; renderPalette(); changed(); });
   $('comp-sevenths').addEventListener('change', e => { comp.sevenths = e.target.checked; renderPalette(); changed({ bars: false }); });
@@ -347,25 +379,75 @@
   let queue = [];
   let raf = null;
 
-  // Strum pattern per beat: [direction up?, loudness]
-  const PATTERN = {
-    4: [[false, 0.85], [false, 0.42], [false, 0.6], [true, 0.4]],
-    3: [[false, 0.85], [false, 0.42], [true, 0.4]],
+  /*
+   * Strumming styles on an eighth-note grid. D down, U up (top strings only), B bass note
+   * (alt: the next string up), P one picked string: b/b2 bass side, r1..r3 from the top.
+   */
+  const D_ = g => ({ k: 'D', g }), U_ = g => ({ k: 'U', g }), B_ = (g, alt) => ({ k: 'B', g, alt }), P_ = (r, g = 0.5) => ({ k: 'P', r, g });
+  const STYLES = {
+    4: [
+      { id: 'suave', label: 'Suave', slots: [D_(0.72), 0, 0, 0, 0, 0, 0, 0] },
+      { id: 'balada', label: 'Balada', slots: [D_(0.8), 0, D_(0.5), 0, D_(0.66), U_(0.4), D_(0.5), U_(0.36)] },
+      { id: 'pop', label: 'Pop', slots: [D_(0.8), 0, D_(0.56), U_(0.42), 0, U_(0.44), D_(0.6), U_(0.38)] },
+      { id: 'folk', label: 'Folk', slots: [B_(0.85), 0, D_(0.5), U_(0.3), B_(0.75, true), 0, D_(0.5), U_(0.3)] },
+      { id: 'arpegio', label: 'Arpegio', slots: [P_('b', 0.72), P_('r3'), P_('r2'), P_('r1', 0.46), P_('b2', 0.6), P_('r3'), P_('r2'), P_('r1', 0.42)] },
+    ],
+    3: [
+      { id: 'suave', label: 'Suave', slots: [D_(0.72), 0, 0, 0, 0, 0] },
+      { id: 'vals', label: 'Vals', slots: [B_(0.85), 0, D_(0.46), 0, D_(0.42), 0] },
+      { id: 'balada', label: 'Balada', slots: [D_(0.8), 0, D_(0.5), U_(0.4), D_(0.5), U_(0.36)] },
+      { id: 'arpegio', label: 'Arpegio', slots: [P_('b', 0.72), P_('r3'), P_('r2'), P_('r1', 0.46), P_('r2'), P_('r3')] },
+    ],
   };
+  comp.styles ||= { 4: 'balada', 3: 'vals' };
+  const style = () => STYLES[comp.meter].find(x => x.id === comp.styles[comp.meter]) || STYLES[comp.meter][0];
 
-  /** Events for one beat of the loop; used by live playback and by the WAV export. */
+  const jitter = amount => (Math.random() - 0.5) * 2 * amount;
+
+  /** Slots until the next strum or bass hit, wrapping into the next bar. */
+  function slotsUntilNext(slots, from, kinds) {
+    for (let d = 1; d <= slots.length; d++) if (slots[(from + d) % slots.length] && kinds.includes(slots[(from + d) % slots.length].k)) return { d, wraps: from + d >= slots.length };
+    return { d: slots.length, wraps: true };
+  }
+
+  /** Events for one beat of the loop; used by live playback and by the audio and MIDI exports. */
   function beatEvents(s, t, withClick) {
     const total = comp.bars.length * comp.meter;
     const k = s % total;
     const bar = Math.floor(k / comp.meter), beat = k % comp.meter;
-    const beatDur = 60 / comp.bpm;
+    const slotDur = 30 / comp.bpm;
     const out = [];
-    const name = comp.bars[bar];
-    if (name) {
-      const [up, gain] = PATTERN[comp.meter][beat];
-      const lastBeat = beat === comp.meter - 1;
-      const nextEmpty = !comp.bars[(bar + 1) % comp.bars.length];
-      out.push({ time: t, notes: notesOf(name), up, gain, ring: lastBeat && nextEmpty ? 2.4 : beatDur * 0.98 });
+    const chord = comp.bars[bar];
+    const nextEmpty = !comp.bars[(bar + 1) % comp.bars.length];
+    if (chord) {
+      const notes = notesOf(chord);
+      const slots = style().slots;
+      for (let h = 0; h < 2 && notes.length; h++) {
+        const i = beat * 2 + h;
+        const slot = slots[i];
+        if (!slot) continue;
+        // Small timing and loudness drift keeps it from sounding mechanical.
+        const time = t + h * slotDur + jitter(i === 0 ? 0.003 : 0.007);
+        const gain = slot.g * (0.92 + Math.random() * 0.14);
+        const remaining = (slots.length - i) * slotDur;
+        if (slot.k === 'D' || slot.k === 'U') {
+          const next = slotsUntilNext(slots, i, ['D', 'U', 'B']);
+          const ring = next.wraps && nextEmpty ? remaining + 2 : next.d * slotDur + 0.05;
+          // Lighter strokes catch fewer strings: soft downs skip the bass, ups only reach the top ones.
+          const set = slot.k === 'U' ? notes.slice(-Math.min(4, notes.length))
+            : slot.g < 0.6 ? notes.slice(-Math.max(3, notes.length - 2)) : notes;
+          const gap = slot.k === 'U' ? 0.014 + Math.random() * 0.006 : 0.03 - slot.g * 0.016 + Math.random() * 0.006;
+          out.push({ time, notes: set, up: slot.k === 'U', gain, ring, gap });
+        } else if (slot.k === 'B') {
+          const n = slot.alt && notes.length > 1 ? notes[1] : notes[0];
+          const next = slotsUntilNext(slots, i, ['B']);
+          out.push({ time, notes: [n], gain, ring: next.wraps && nextEmpty ? remaining + 2 : next.d * slotDur + 0.1 });
+        } else {
+          const pick = { b: 0, b2: 1, r1: notes.length - 1, r2: notes.length - 2, r3: notes.length - 3 }[slot.r];
+          const n = notes[Math.max(0, Math.min(notes.length - 1, pick))];
+          out.push({ time, notes: [n], gain, ring: remaining + (nextEmpty ? 2 : 0.35) });
+        }
+      }
     }
     if (withClick) out.push({ time: t, click: true, accent: beat === 0 });
     return { out, bar, beat };
@@ -485,7 +567,7 @@
   const fileBase = () => A.slug(`progresion-${T.NOTES[comp.key]}-${comp.mode === 'major' ? 'mayor' : 'menor'}`);
 
   function asText() {
-    const cells = comp.bars.map(b => (b ? pretty(b) : '%'));
+    const cells = comp.bars.map(b => (b ? pretty(b.name) : '%'));
     const lines = [];
     for (let i = 0; i < cells.length; i += 4) lines.push('| ' + cells.slice(i, i + 4).join(' | ') + ' |');
     return `${keyLabel()}, ${comp.meter}/4, ${comp.bpm} bpm\n${lines.join('\n')}`;
@@ -506,7 +588,8 @@
     if (bg !== 'transparent') parts.push(`<rect width="${W}" height="${H}" fill="${bg}"/>`);
     parts.push(`<text x="${pad}" y="${pad + 30}" font-size="34" font-weight="800" letter-spacing="-1" fill="${ink}">${keyLabel()}</text>`);
     parts.push(`<text x="${W - pad}" y="${pad + 30}" font-size="20" font-weight="600" text-anchor="end" fill="${soft}">${comp.meter}/4, ${comp.bpm} bpm</text>`);
-    comp.bars.forEach((name, i) => {
+    comp.bars.forEach((bar, i) => {
+      const name = bar?.name;
       const x = pad + (i % cols) * (cellW + gap);
       const y = pad + head + Math.floor(i / cols) * (cellH + gap);
       parts.push(`<rect x="${x + 0.5}" y="${y + 0.5}" width="${cellW - 1}" height="${cellH - 1}" rx="22" fill="none" stroke="${line}" stroke-width="1.5"/>`);
@@ -517,7 +600,7 @@
       }
       const roman = T.romanIn(name, comp.key, comp.mode);
       if (roman) parts.push(`<text x="${x + cellW - 20}" y="${y + 32}" font-size="16" font-weight="600" text-anchor="end" fill="${soft}">${roman}</text>`);
-      const r = diagram(name, { colors: { ...colors, bg: 'transparent' }, title: pretty(name) });
+      const r = diagram(bar, { colors: { ...colors, bg: 'transparent' }, title: pretty(name) });
       const scale = Math.min((cellW - 40) / r.width, (cellH - 50) / r.height);
       const dw = r.width * scale, dh = r.height * scale;
       parts.push(r.svg.replace('<svg ', `<svg x="${x + (cellW - dw) / 2}" y="${y + 40 + (cellH - 50 - dh) / 2}" `).replace(/width="[\d.]+" height="[\d.]+"/, `width="${dw}" height="${dh}"`));
@@ -539,20 +622,26 @@
 
   function asMidi() {
     const tpq = 480;
-    const barTicks = tpq * comp.meter;
     const ev = [];
     const meta = (tick, bytes) => ev.push({ tick, bytes, order: 0 });
     const us = Math.round(60e6 / comp.bpm);
     meta(0, [0xff, 0x51, 0x03, (us >> 16) & 0xff, (us >> 8) & 0xff, us & 0xff]);
     meta(0, [0xff, 0x58, 0x04, comp.meter, 2, 24, 8]);
     meta(0, [0xc0, 25]); // acoustic steel guitar
-    comp.bars.forEach((name, i) => {
-      if (!name) return;
-      notesOf(name).forEach(n => {
-        ev.push({ tick: i * barTicks, bytes: [0x90, n, 84], order: 2 });
-        ev.push({ tick: (i + 1) * barTicks, bytes: [0x80, n, 0], order: 1 });
+    // Follow the strumming style; each stroke becomes notes that last as long as they ring.
+    const beatDur = 60 / comp.bpm;
+    const toTick = sec => Math.max(0, Math.round((sec / beatDur) * tpq));
+    for (let st = 0; st < comp.bars.length * comp.meter; st++) {
+      beatEvents(st, st * beatDur, false).out.forEach(e => {
+        const vel = Math.max(20, Math.min(120, Math.round(e.gain * 130)));
+        const order = e.up ? e.notes.slice().reverse() : e.notes;
+        order.forEach((n, j) => {
+          const on = toTick(e.time + j * (e.gap || 0.02));
+          ev.push({ tick: on, bytes: [0x90, n, vel], order: 2 });
+          ev.push({ tick: Math.max(on + 1, toTick(e.time + Math.min(e.ring, 4))), bytes: [0x80, n, 0], order: 1 });
+        });
       });
-    });
+    }
     ev.sort((a, b) => a.tick - b.tick || a.order - b.order);
     const vlq = n => { const out = [n & 0x7f]; while ((n >>= 7)) out.unshift((n & 0x7f) | 0x80); return out; };
     const track = [];
@@ -567,11 +656,145 @@
     return new Blob([new Uint8Array(bytes)], { type: 'audio/midi' });
   }
 
+  function chipChord(chip) {
+    if (chip.dataset.custom != null) return { ...comp.custom[+chip.dataset.custom] };
+    return { name: chip.dataset.name };
+  }
+
+  /* ---------- Chord editor (draw any chord without leaving the composer) ---------- */
+
+  const dlg = $('chord-dialog');
+  const ed = { frets: [], name: '', nameAuto: true, startFret: null, target: null };
+
+  function openEditor(barIndex) {
+    const n = T.INSTRUMENTS[A.instrument()].strings.length;
+    const bar = barIndex != null ? comp.bars[barIndex] : null;
+    const v = bar ? voicing(bar) : null;
+    ed.frets = v && v.frets.length === n ? v.frets.slice() : new Array(n).fill(0);
+    ed.name = bar ? bar.name : '';
+    ed.nameAuto = !bar;
+    ed.startFret = null;
+    ed.target = barIndex;
+    $('ce-name').value = ed.name;
+    const into = barIndex ?? selected ?? comp.bars.findIndex(b => !b);
+    $('ce-save').textContent = barIndex != null ? 'Guardar cambios' : into >= 0 ? `Agregar al compás ${into + 1}` : 'Agregar al final';
+    renderEditor();
+    dlg.showModal();
+  }
+
+  function edChord() {
+    return { instrument: A.instrument(), frets: ed.frets, fingers: T.autoFinger(ed.frets) || ed.frets.map(() => ''), startFret: ed.startFret };
+  }
+
+  function renderEditor() {
+    const c = edChord();
+    const detected = T.detect(ed.frets, A.instrument());
+    if (ed.nameAuto) { ed.name = detected || ''; $('ce-name').value = ed.name; }
+    const p = A.prefs;
+    const root = T.parseChordName(ed.name) || T.parseChordName(detected || '');
+    const r = D.render(c, {
+      rows: p.rows, colors: A.colors(), showFingers: p.showFingers, labels: p.labels, lefty: p.lefty,
+      markRoot: p.markRoot, rootPc: root ? root.root : null, interactive: true,
+    });
+    $('ce-board').innerHTML = r.svg;
+    $('ce-fret').textContent = r.base === 1 ? 'Cejuela' : `${r.base}fr`;
+    const notes = ed.frets.map((f, s) => (f >= 0 ? T.noteName(T.INSTRUMENTS[A.instrument()].midi[s] + f) : null)).filter(Boolean);
+    const warn = T.autoFinger(ed.frets) ? '' : ' Necesita más de 4 dedos.';
+    $('ce-info').textContent = (notes.length ? notes.map(pretty).join('  ') : 'Sin notas') + warn;
+    $('ce-info').classList.toggle('warn', !!warn);
+    $('ce-save').disabled = !ed.name.trim() || !notes.length;
+    renderVariants(root);
+  }
+
+  const VARIANT_QUALITIES = ['', 'm', '7', 'maj7', 'm7', 'sus2', 'sus4', 'add9', '6', '9', 'dim', 'aug'];
+
+  /** Other chord types on the same root, and other places to play the current one. */
+  function renderVariants(parsed) {
+    $('ce-variants-wrap').hidden = !parsed;
+    $('ce-voicings-wrap').hidden = !parsed;
+    if (!parsed) return;
+    const box = $('ce-qualities');
+    box.innerHTML = '';
+    VARIANT_QUALITIES.forEach(q => {
+      const b = document.createElement('button');
+      const name = T.chordName(parsed.root, q);
+      b.textContent = pretty(name);
+      b.setAttribute('aria-pressed', String(q === parsed.quality));
+      b.onclick = () => {
+        const v = T.findVoicings(parsed.root, q, A.instrument())[0];
+        ed.name = name;
+        ed.nameAuto = false;
+        $('ce-name').value = name;
+        if (v) { ed.frets = v.frets.slice(); ed.startFret = null; }
+        renderEditor();
+        S.strum(notesOf({ frets: ed.frets }));
+      };
+      box.append(b);
+    });
+    const list = $('ce-voicings');
+    list.innerHTML = '';
+    const p = A.prefs;
+    const cur = ed.frets.join();
+    T.findVoicings(parsed.root, parsed.quality, A.instrument()).forEach(v => {
+      const b = document.createElement('button');
+      b.className = 'voicing';
+      b.setAttribute('aria-current', String(v.frets.join() === cur));
+      const fretted = v.frets.filter(f => f > 0);
+      const low = fretted.length ? Math.min(...fretted) : 0;
+      b.innerHTML = D.render({ instrument: A.instrument(), frets: v.frets, fingers: v.fingers }, {
+        rows: p.rows, colors: A.colors(), showFingers: p.showFingers, labels: p.labels, lefty: p.lefty,
+        markRoot: p.markRoot, rootPc: parsed.root,
+      }).svg + `<span>${v.frets.includes(0) && low <= 3 ? 'Abierto' : 'Traste ' + low}</span>`;
+      b.setAttribute('aria-label', `${v.name}: ${T.fretsCode(v.frets)}`);
+      b.onclick = () => {
+        ed.frets = v.frets.slice();
+        ed.startFret = null;
+        renderEditor();
+        S.strum(notesOf({ frets: ed.frets }));
+      };
+      list.append(b);
+    });
+  }
+
+  $('ce-board').addEventListener('click', e => {
+    const t = e.target.closest('[data-f]');
+    if (!t) return;
+    const s = +t.dataset.s;
+    if (t.dataset.f === 'toggle') ed.frets[s] = ed.frets[s] === 0 ? -1 : 0;
+    else ed.frets[s] = ed.frets[s] === +t.dataset.f ? 0 : +t.dataset.f;
+    renderEditor();
+    if (A.prefs.sound && ed.frets[s] >= 0) S.pluck(T.INSTRUMENTS[A.instrument()].midi[s] + ed.frets[s]);
+  });
+  $('ce-name').addEventListener('input', e => { ed.name = e.target.value; ed.nameAuto = !ed.name.trim(); renderEditor(); });
+  $('ce-up').addEventListener('click', () => { ed.startFret = Math.max(1, D.windowStart(edChord(), A.prefs.rows) - 1); renderEditor(); });
+  $('ce-down').addEventListener('click', () => { ed.startFret = Math.min(20, D.windowStart(edChord(), A.prefs.rows) + 1); renderEditor(); });
+  $('ce-clear').addEventListener('click', () => { ed.frets = ed.frets.map(() => 0); ed.startFret = null; ed.nameAuto = true; renderEditor(); });
+  $('ce-play').addEventListener('click', () => S.strum(notesOf({ frets: ed.frets })));
+  $('ce-cancel').addEventListener('click', () => dlg.close());
+  dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+
+  $('ce-save').addEventListener('click', () => {
+    const chord = { name: ed.name.trim(), frets: ed.frets.slice(), fingers: T.autoFinger(ed.frets) || undefined };
+    // Keep it in the palette for reuse, without duplicates.
+    const key = c => c.name + '|' + c.frets.join();
+    if (!comp.custom.some(c => key(c) === key(chord))) comp.custom = [chord, ...comp.custom].slice(0, 8);
+    dlg.close();
+    renderPalette();
+    if (ed.target != null) {
+      comp.bars[ed.target] = chord;
+      changed();
+    } else {
+      addChord(chord);
+    }
+  });
+
   /* ---------- Link ---------- */
 
   function hash() {
-    const seq = comp.bars.map(b => (b ? encodeURIComponent(b) : '-')).join(',');
-    return `#compositor?k=${comp.key}&m=${comp.mode}&t=${comp.meter}&bpm=${comp.bpm}&s=${seq}`;
+    // Hand-drawn chords carry their frets: name~frets~fingers
+    const seq = comp.bars.map(b => (!b ? '-' : encodeURIComponent(b.frets ? `${b.name}~${T.fretsCode(b.frets)}~${T.fingersCode(b.fingers || [])}` : b.name))).join(',');
+    const uke = comp.bars.some(b => b?.frets) && A.instrument() === 'ukulele' ? '&i=uke' : '';
+    return `#compositor?k=${comp.key}&m=${comp.mode}&t=${comp.meter}&bpm=${comp.bpm}${uke}&s=${seq}`;
   }
 
   function load(h) {
@@ -583,7 +806,16 @@
     if (['3', '4'].includes(q.get('t'))) comp.meter = +q.get('t');
     const bpm = +q.get('bpm');
     if (bpm >= 40 && bpm <= 200) comp.bpm = bpm;
-    const bars = q.get('s').split(',').slice(0, MAX_BARS).map(x => (x === '-' || !T.parseChordName(x) ? null : x));
+    const bars = q.get('s').split(',').slice(0, MAX_BARS).map(x => {
+      if (x === '-') return null;
+      const [name, frets, fingers] = x.split('~');
+      if (frets) {
+        const inst = q.get('i') === 'uke' ? 'ukulele' : 'guitar';
+        const n = T.INSTRUMENTS[inst].strings.length;
+        return { name, frets: T.parseFrets(frets, n), fingers: fingers ? T.parseFingers(fingers, n) : undefined };
+      }
+      return T.parseChordName(name) ? { name } : null;
+    });
     if (bars.length) comp.bars = bars;
     selected = null;
     persist();

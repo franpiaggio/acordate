@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css?v=19">
+  <link rel="stylesheet" href="css/styles.css?v=21">
 </head>
 <body>
   <header class="topbar">
@@ -161,6 +161,13 @@
         </div>
       </div>
       <div class="ctl">
+        <span class="ctl-label" id="style-label">Rasgueo</span>
+        <span class="select">
+          <select id="comp-style" aria-labelledby="style-label"></select>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+        </span>
+      </div>
+      <div class="ctl">
         <span class="ctl-label">Tempo</span>
         <span class="stepper">
           <button class="icon-btn small" id="bpm-down" aria-label="Más lento"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
@@ -240,6 +247,47 @@
 
 
 
+  <dialog class="chord-dialog" id="chord-dialog" aria-labelledby="ce-name-label">
+    <div class="ce-head">
+      <label class="visually-hidden" id="ce-name-label" for="ce-name">Nombre del acorde</label>
+      <input id="ce-name" class="ce-name" placeholder="Sin nombre" spellcheck="false" autocomplete="off" maxlength="24">
+      <button class="icon-btn small" id="ce-cancel" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <p class="ce-info" id="ce-info" aria-live="polite"></p>
+    <div class="ce-body">
+      <div class="ce-board-wrap">
+        <div class="ce-board" id="ce-board"></div>
+        <div class="ce-fret">
+          <button class="icon-btn small" id="ce-up" aria-label="Hacia la cejuela"><svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg></button>
+          <output id="ce-fret"></output>
+          <button class="icon-btn small" id="ce-down" aria-label="Hacia el cuerpo"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+        </div>
+      </div>
+      <div class="ce-side">
+        <div class="ce-section" id="ce-variants-wrap">
+          <h3>Variantes</h3>
+          <div class="ce-qualities" id="ce-qualities"></div>
+        </div>
+        <div class="ce-section" id="ce-voicings-wrap">
+          <h3>Posiciones</h3>
+          <div class="ce-voicings" id="ce-voicings"></div>
+        </div>
+      </div>
+    </div>
+    <div class="ce-foot">
+      <button class="btn" id="ce-play">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 7 5.5Z"/></svg>
+        <span>Escuchar</span>
+      </button>
+      <button class="icon-btn" id="ce-clear" aria-label="Vaciar diagrama" title="Vaciar diagrama">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 4h4M8 7l.7 11.2a1.5 1.5 0 0 0 1.5 1.3h3.6a1.5 1.5 0 0 0 1.5-1.3L16 7M10.5 10.5v6M13.5 10.5v6"/></svg>
+      </button>
+      <button class="btn primary" id="ce-save">Agregar</button>
+    </div>
+  </dialog>
+
   <dialog class="settings" id="settings" aria-labelledby="settings-title">
     <div class="settings-head">
       <h2 id="settings-title">Ajustes</h2>
@@ -303,10 +351,10 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="js/theory.js?v=19"></script>
-  <script src="js/render.js?v=19"></script>
-  <script src="js/audio.js?v=19"></script>
-  <script src="js/app.js?v=19"></script>
-  <script src="js/composer.js?v=19"></script>
+  <script src="js/theory.js?v=21"></script>
+  <script src="js/render.js?v=21"></script>
+  <script src="js/audio.js?v=21"></script>
+  <script src="js/app.js?v=21"></script>
+  <script src="js/composer.js?v=21"></script>
 </body>
 </html>
