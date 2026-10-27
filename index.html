@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css?v=16">
+  <link rel="stylesheet" href="css/styles.css?v=17">
 </head>
 <body>
   <header class="topbar">
@@ -46,12 +46,14 @@
             <button role="radio" data-value="degrees" aria-checked="false" title="Grado de cada nota respecto de la tónica: 1, 3, 5…">Grados</button>
           </div>
           <button class="text-btn" id="auto-fingers" hidden>Dedos automáticos</button>
-          <button class="text-btn" id="clear">Vaciar</button>
+          <button class="icon-btn small" id="clear" aria-label="Vaciar diagrama" title="Vaciar diagrama">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 4h4M8 7l.7 11.2a1.5 1.5 0 0 0 1.5 1.3h3.6a1.5 1.5 0 0 0 1.5-1.3L16 7M10.5 10.5v6M13.5 10.5v6"/></svg>
+          </button>
         </div>
       </div>
       <div class="stage-head">
         <label class="visually-hidden" for="name">Nombre del acorde</label>
-        <input id="name" class="chord-name" value="D" spellcheck="false" autocomplete="off" maxlength="24">
+        <input id="name" class="chord-name" value="D" placeholder="Sin nombre" spellcheck="false" autocomplete="off" maxlength="24">
         <p class="detected" id="detected" aria-live="polite"></p>
       </div>
 
@@ -221,9 +223,9 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="js/theory.js?v=16"></script>
-  <script src="js/render.js?v=16"></script>
-  <script src="js/audio.js?v=16"></script>
-  <script src="js/app.js?v=16"></script>
+  <script src="js/theory.js?v=17"></script>
+  <script src="js/render.js?v=17"></script>
+  <script src="js/audio.js?v=17"></script>
+  <script src="js/app.js?v=17"></script>
 </body>
 </html>

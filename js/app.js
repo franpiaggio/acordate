@@ -236,6 +236,7 @@
   $('clear').addEventListener('click', () => {
     state.frets = state.frets.map(() => 0);
     state.startFret = null;
+    state.name = '';
     state.nameAuto = true;
     state.fingersAuto = true;
     closeFingerPop();
@@ -441,7 +442,7 @@
   /* ---------- URL hash (name.png?p=frets&f=fingers, the classic chord-link format) ---------- */
 
   function hashFor(c, name) {
-    let h = `${encodeURIComponent(name || 'Acorde')}.png?p=${T.fretsCode(c.frets)}&f=${T.fingersCode(c.fingers)}`;
+    let h = `${encodeURIComponent(name || '')}.png?p=${T.fretsCode(c.frets)}&f=${T.fingersCode(c.fingers)}`;
     h += `&s=${prefs.size}&b=${!!c.fullBarre}`;
     if (c.instrument === 'ukulele') h += '&i=uke';
     if (c.startFret) h += `&w=${c.startFret}`;

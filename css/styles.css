@@ -160,6 +160,7 @@ h2, h3, p { margin: 0; }
   padding: 4px 0 6px; border-radius: 16px;
   font-variant-numeric: lining-nums;
 }
+.chord-name::placeholder { color: var(--line-strong); }
 .chord-name:hover { background: color-mix(in srgb, var(--ink) 3%, transparent); }
 .chord-name:focus { outline: none; background: color-mix(in srgb, var(--accent) 7%, transparent); }
 .detected { white-space: pre; min-height: 24px; margin-top: 4px; color: var(--soft); font-size: 15px; }
