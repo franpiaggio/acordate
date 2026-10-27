@@ -82,7 +82,7 @@ h2, h3, p { margin: 0; }
 .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 800; font-size: 21px; letter-spacing: -0.04em; }
 .brand svg { width: 30px; height: 30px; }
 .brand svg rect { fill: var(--accent); stroke: none; }
-.brand svg path { stroke: var(--accent-ink); stroke-width: 1.6; }
+.brand svg path { stroke: var(--accent-ink); stroke-width: 3.4; stroke-linecap: round; }
 .brand svg circle { fill: var(--accent-ink); stroke: none; }
 .topbar-end { display: flex; align-items: center; gap: 8px; }
 
