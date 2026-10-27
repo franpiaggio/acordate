@@ -69,8 +69,8 @@
     sel.value = comp.key;
     setMode(comp.mode);
     setMeter(comp.meter);
-    $('bpm-out').textContent = comp.bpm;
-    $('bars-out').textContent = comp.bars.length;
+    $('bpm-out').value = comp.bpm;
+    $('bars-out').value = comp.bars.length;
     $('comp-sevenths').checked = comp.sevenths;
     $('comp-metro').setAttribute('aria-pressed', String(comp.metro));
     renderStyles();
@@ -169,7 +169,7 @@
       if (comp.bars.length >= MAX_BARS) { A.toast('Llegaste al máximo de compases'); return; }
       comp.bars.push(null);
       i = comp.bars.length - 1;
-      $('bars-out').textContent = comp.bars.length;
+      $('bars-out').value = comp.bars.length;
     }
     comp.bars[i] = { ...chord };
     selected = i + 1 < comp.bars.length ? i + 1 : null;
@@ -329,7 +329,7 @@
 
   function stepBpm(d) {
     comp.bpm = Math.min(200, Math.max(40, comp.bpm + d));
-    $('bpm-out').textContent = comp.bpm;
+    $('bpm-out').value = comp.bpm;
     changed({ bars: false });
   }
   // Holding the button keeps changing the tempo.
@@ -341,17 +341,44 @@
     $(id).addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); stepBpm(d); } });
   });
 
+  /** Typed numbers apply on Enter or when leaving the field; anything invalid snaps back. */
+  function numberField(id, min, max, current, apply) {
+    const el = $(id);
+    const commit = () => {
+      const n = parseInt(el.value, 10);
+      if (Number.isFinite(n)) apply(Math.min(max, Math.max(min, n)));
+      el.value = current();
+    };
+    el.addEventListener('change', commit);
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
+      else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        el.value = (parseInt(el.value, 10) || current()) + (e.key === 'ArrowUp' ? 1 : -1);
+        commit();
+      }
+    });
+    el.addEventListener('focus', () => el.select());
+  }
+  numberField('bpm-out', 40, 200, () => comp.bpm, n => { comp.bpm = n; changed({ bars: false }); });
+  numberField('bars-out', 1, MAX_BARS, () => comp.bars.length, n => {
+    while (comp.bars.length < n) comp.bars.push(null);
+    comp.bars.length = n;
+    if (selected != null && selected >= n) selected = null;
+    changed();
+  });
+
   $('bars-up').addEventListener('click', () => {
     if (comp.bars.length >= MAX_BARS) return;
     comp.bars.push(null);
-    $('bars-out').textContent = comp.bars.length;
+    $('bars-out').value = comp.bars.length;
     changed();
   });
   $('bars-down').addEventListener('click', () => {
     if (comp.bars.length <= 1) return;
     comp.bars.pop();
     if (selected != null && selected >= comp.bars.length) selected = null;
-    $('bars-out').textContent = comp.bars.length;
+    $('bars-out').value = comp.bars.length;
     changed();
   });
 

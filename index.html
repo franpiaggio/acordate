@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css?v=23">
+  <link rel="stylesheet" href="css/styles.css?v=24">
 </head>
 <body>
   <header class="topbar">
@@ -171,7 +171,7 @@
         <span class="ctl-label">Tempo</span>
         <span class="stepper">
           <button class="icon-btn small" id="bpm-down" aria-label="Más lento"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
-          <output id="bpm-out" aria-live="polite">90</output>
+          <input class="num" id="bpm-out" type="text" inputmode="numeric" value="90" aria-label="Tempo en pulsos por minuto" maxlength="3">
           <button class="icon-btn small" id="bpm-up" aria-label="Más rápido"><svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></button>
         </span>
       </div>
@@ -179,7 +179,7 @@
         <span class="ctl-label">Compases</span>
         <span class="stepper">
           <button class="icon-btn small" id="bars-down" aria-label="Quitar un compás"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
-          <output id="bars-out" aria-live="polite">4</output>
+          <input class="num" id="bars-out" type="text" inputmode="numeric" value="4" aria-label="Cantidad de compases" maxlength="2">
           <button class="icon-btn small" id="bars-up" aria-label="Agregar un compás"><svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></button>
         </span>
       </div>
@@ -358,10 +358,10 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="js/theory.js?v=23"></script>
-  <script src="js/render.js?v=23"></script>
-  <script src="js/audio.js?v=23"></script>
-  <script src="js/app.js?v=23"></script>
-  <script src="js/composer.js?v=23"></script>
+  <script src="js/theory.js?v=24"></script>
+  <script src="js/render.js?v=24"></script>
+  <script src="js/audio.js?v=24"></script>
+  <script src="js/app.js?v=24"></script>
+  <script src="js/composer.js?v=24"></script>
 </body>
 </html>
