@@ -299,7 +299,7 @@
   }
 
   const setInstrument = segmented('instrument', state.instrument, v => switchInstrument(v));
-  segmented('labels', prefs.labels, v => { prefs.labels = v; savePrefs(); renderBoard(); renderVoicings(); renderFavs(); });
+  segmented('labels', prefs.labels, v => { prefs.labels = v; savePrefs(); window.App.onDiagramChange?.(); renderBoard(); renderVoicings(); renderFavs(); });
   segmented('format', prefs.format, v => { prefs.format = v; savePrefs(); });
   segmented('size', prefs.size, v => { prefs.size = +v; savePrefs(); });
   segmented('bg', prefs.bg, v => { prefs.bg = v; savePrefs(); });
@@ -309,7 +309,7 @@
   const switches = { 'opt-fingers': 'showFingers', 'opt-notes': 'showNotes', 'opt-root': 'markRoot', 'opt-lefty': 'lefty', 'opt-sound': 'sound' };
   Object.entries(switches).forEach(([id, key]) => {
     $(id).checked = prefs[key];
-    $(id).addEventListener('change', e => { prefs[key] = e.target.checked; savePrefs(); renderBoard(); renderDetected(); renderVoicings(); renderFavs(); });
+    $(id).addEventListener('change', e => { prefs[key] = e.target.checked; savePrefs(); window.App.onDiagramChange?.(); renderBoard(); renderDetected(); renderVoicings(); renderFavs(); });
   });
   $('opt-barre').addEventListener('change', e => { state.fullBarre = e.target.checked; update(); });
 
@@ -498,6 +498,7 @@
 
   window.addEventListener('hashchange', () => {
     if (location.hash === '#favoritos') { showView('favs'); return; }
+    if (location.hash.startsWith('#compositor')) { if (view !== 'comp') { window.Composer.load(location.hash); showView('comp'); } return; }
     if (location.hash.slice(1) === hashFor(chord(), state.name)) return;
     if (readHash()) { setInstrument(state.instrument); renderLibrary(); update({ hash: false }); }
   });
@@ -724,12 +725,14 @@
     view = next;
     $('view-editor').hidden = next !== 'editor';
     $('view-favs').hidden = next !== 'favs';
+    $('view-comp').hidden = next !== 'comp';
+    if (next !== 'comp') window.Composer?.stop();
     document.querySelectorAll('.views [data-view]').forEach(b => {
       if (b.dataset.view === next) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
     });
     closeFingerPop();
     if (push) {
-      const url = next === 'favs' ? '#favoritos' : '#' + hashFor(chord(), state.name);
+      const url = next === 'favs' ? '#favoritos' : next === 'comp' ? window.Composer.hash() : '#' + hashFor(chord(), state.name);
       if (location.hash !== url) history.pushState(null, '', url);
     }
     window.scrollTo(0, 0);
@@ -740,6 +743,7 @@
   });
   window.addEventListener('popstate', () => {
     if (location.hash === '#favoritos') { showView('favs'); return; }
+    if (location.hash.startsWith('#compositor')) { window.Composer.load(location.hash); showView('comp'); return; }
     if (readHash()) { setInstrument(state.instrument); renderLibrary(); update({ hash: false }); }
     showView('editor');
   });
@@ -768,9 +772,24 @@
   document.addEventListener('keydown', e => {
     const typing = /INPUT|TEXTAREA/.test(document.activeElement.tagName);
     if (typing) return;
+    if (view === 'comp') {
+      if (e.key === ' ' && document.activeElement.tagName !== 'BUTTON') { e.preventDefault(); window.Composer.toggle(); }
+      return;
+    }
     if (e.key === '/') { e.preventDefault(); $('search').focus(); }
     else if (e.key === ' ' && document.activeElement.tagName !== 'BUTTON') { e.preventDefault(); play(); }
   });
+
+  /* ---------- Shared with the composer ---------- */
+
+  window.App = {
+    toast, save, svgToPng, fontCss, slug, showView, savePrefs, prefs,
+    instrument: () => state.instrument,
+    colors: () => PALETTES.screen,
+    exportColors: () => PALETTES[prefs.bg],
+    // Keeps diagrams in other views in sync with the diagram settings.
+    onDiagramChange: null,
+  };
 
   /* ---------- Start ---------- */
 

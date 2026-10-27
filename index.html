@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css?v=17">
+  <link rel="stylesheet" href="css/styles.css?v=19">
 </head>
 <body>
   <header class="topbar">
@@ -21,6 +21,7 @@
     </a>
     <nav class="views" aria-label="Secciones">
       <button data-view="editor" aria-current="page">Editor</button>
+      <button data-view="comp">Compositor</button>
       <button data-view="favs">Favoritos <span class="count" id="fav-count" hidden></span></button>
     </nav>
     <div class="topbar-end">
@@ -135,6 +136,85 @@
 
   </main>
 
+  <main class="comp" id="view-comp" hidden>
+    <h1 class="visually-hidden">Compositor</h1>
+
+    <div class="comp-controls">
+      <div class="ctl">
+        <span class="ctl-label" id="key-label">Tonalidad</span>
+        <div class="ctl-row">
+          <span class="select">
+            <select id="comp-key" aria-labelledby="key-label"></select>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+          </span>
+          <div class="seg small" role="radiogroup" aria-label="Modo" id="comp-mode">
+            <button role="radio" data-value="major" aria-checked="true">Mayor</button>
+            <button role="radio" data-value="minor" aria-checked="false">Menor</button>
+          </div>
+        </div>
+      </div>
+      <div class="ctl">
+        <span class="ctl-label">Compás</span>
+        <div class="seg small" role="radiogroup" aria-label="Compás" id="comp-meter">
+          <button role="radio" data-value="4" aria-checked="true">4/4</button>
+          <button role="radio" data-value="3" aria-checked="false">3/4</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <span class="ctl-label">Tempo</span>
+        <span class="stepper">
+          <button class="icon-btn small" id="bpm-down" aria-label="Más lento"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
+          <output id="bpm-out" aria-live="polite">90</output>
+          <button class="icon-btn small" id="bpm-up" aria-label="Más rápido"><svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></button>
+        </span>
+      </div>
+      <div class="ctl">
+        <span class="ctl-label">Compases</span>
+        <span class="stepper">
+          <button class="icon-btn small" id="bars-down" aria-label="Quitar un compás"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
+          <output id="bars-out" aria-live="polite">4</output>
+          <button class="icon-btn small" id="bars-up" aria-label="Agregar un compás"><svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></button>
+        </span>
+      </div>
+      <div class="comp-actions">
+        <button class="icon-btn" id="comp-metro" aria-pressed="false" aria-label="Metrónomo" title="Metrónomo">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 3.5h5l3.5 17h-12l3.5-17ZM7.2 15h9.6M12 15l5-9"/></svg>
+        </button>
+        <button class="icon-btn" id="comp-clear" aria-label="Vaciar compases" title="Vaciar compases">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 4h4M8 7l.7 11.2a1.5 1.5 0 0 0 1.5 1.3h3.6a1.5 1.5 0 0 0 1.5-1.3L16 7M10.5 10.5v6M13.5 10.5v6"/></svg>
+        </button>
+        <div class="menu-wrap">
+          <button class="btn" id="comp-export" aria-haspopup="menu" aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg>
+            <span>Exportar</span>
+          </button>
+          <div class="menu" id="comp-menu" role="menu" hidden>
+            <button role="menuitem" data-export="png">Imagen PNG</button>
+            <button role="menuitem" data-export="wav">Audio WAV</button>
+            <button role="menuitem" data-export="midi">Archivo MIDI</button>
+            <button role="menuitem" data-export="text">Copiar como texto</button>
+            <button role="menuitem" data-export="link">Copiar enlace</button>
+          </div>
+        </div>
+        <button class="btn primary" id="comp-play">
+          <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 7 5.5Z"/></svg>
+          <svg class="i-stop" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/></svg>
+          <span>Reproducir</span>
+        </button>
+      </div>
+    </div>
+
+    <section class="palette" aria-label="Acordes de la tonalidad">
+      <div class="chips" id="comp-chips"></div>
+      <div class="palette-foot">
+        <div class="presets" id="comp-presets" aria-label="Progresiones para probar"></div>
+        <label class="mini-switch"><input type="checkbox" id="comp-sevenths"><span>Séptimas</span></label>
+      </div>
+    </section>
+
+    <ol class="bars" id="comp-bars" aria-label="Compases"></ol>
+  </main>
+
   <main class="favs" id="view-favs" hidden>
     <div class="favs-head" id="favs-head">
       <div>
@@ -223,9 +303,10 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="js/theory.js?v=17"></script>
-  <script src="js/render.js?v=17"></script>
-  <script src="js/audio.js?v=17"></script>
-  <script src="js/app.js?v=17"></script>
+  <script src="js/theory.js?v=19"></script>
+  <script src="js/render.js?v=19"></script>
+  <script src="js/audio.js?v=19"></script>
+  <script src="js/app.js?v=19"></script>
+  <script src="js/composer.js?v=19"></script>
 </body>
 </html>

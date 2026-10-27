@@ -36,6 +36,12 @@ Acordate es un generador de diagramas de acordes. Tocas el diapasón, escuchas c
 - PNG en cuatro tamaños o SVG, con fondo claro, oscuro o transparente. La tipografía va incluida en el archivo.
 - Copia la imagen al portapapeles o comparte un enlace que abre el mismo acorde.
 
+**Compositor**
+- Elige una tonalidad (mayor o menor) y el compás (4/4 o 3/4). La app te muestra los acordes de esa tonalidad con su grado (I, ii, V…).
+- Arrastra acordes a los compases, o toca un compás y después un acorde. Arrastrar un compás sobre otro los intercambia.
+- Reproduce la secuencia en bucle con rasgueo y metrónomo opcional, y prueba progresiones típicas con un toque.
+- Exporta la progresión como imagen PNG, audio WAV, archivo MIDI, texto o enlace.
+
 **Favoritos**
 - Guarda acordes en una sección aparte, ábrelos cuando quieras y descárgalos todos juntos en una sola imagen.
 
@@ -67,6 +73,7 @@ https://franpiaggio.github.io/acordate/#D.png?p=xx0232&f=---132
 - `i=uke`: ukelele.
 - `w=5`: fija el traste inicial del diagrama.
 - `#favoritos` abre la sección de favoritos.
+- `#compositor?k=0&m=major&t=4&bpm=90&s=C,G,Am,F` abre el compositor con esa progresión (`k` tónica de 0 a 11, `m` major o minor, `t` 3 o 4, `-` deja un compás vacío).
 
 ## Correrlo en tu computadora
 
@@ -88,6 +95,7 @@ js/theory.js        notas, tipos de acorde, detección, posiciones y digitación
 js/render.js        dibuja los diagramas en SVG (editor, miniaturas y descargas)
 js/audio.js         reproducción con muestras y sintetizador de respaldo
 js/app.js           estado, interfaz, vistas, enlaces, descargas y favoritos
+js/composer.js      compositor: tonalidad, compases, reproducción y exportación
 assets/samples/     13 muestras de guitarra acústica
 docs/               capturas para este README
 ```

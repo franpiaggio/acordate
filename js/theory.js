@@ -306,7 +306,46 @@
     return pcs.some(p => [10, 11].includes(pc(p - rootPc)));
   }
 
+  /* Chords that belong to a key, in scale order. */
+  const SCALES = {
+    major: {
+      steps: [0, 2, 4, 5, 7, 9, 11],
+      triads: ['', 'm', 'm', '', '', 'm', 'dim'],
+      sevenths: ['maj7', 'm7', 'm7', 'maj7', '7', 'm7', 'm7b5'],
+      romans: ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'],
+    },
+    minor: {
+      steps: [0, 2, 3, 5, 7, 8, 10],
+      triads: ['m', 'dim', '', 'm', 'm', '', ''],
+      sevenths: ['m7', 'm7b5', 'maj7', 'm7', 'm7', 'maj7', '7'],
+      romans: ['i', 'ii°', 'III', 'iv', 'v', 'VI', 'VII'],
+    },
+  };
+
+  /** Diatonic chords of a key. Minor keys also offer the major V borrowed from harmonic minor. */
+  function keyChords(tonic, mode, sevenths) {
+    const sc = SCALES[mode];
+    const list = sc.steps.map((st, i) => {
+      const quality = sevenths ? sc.sevenths[i] : sc.triads[i];
+      return { root: pc(tonic + st), quality, roman: sc.romans[i], name: chordName(tonic + st, quality) };
+    });
+    if (mode === 'minor') {
+      const quality = sevenths ? '7' : '';
+      list.push({ root: pc(tonic + 7), quality, roman: 'V', name: chordName(tonic + 7, quality), borrowed: true });
+    }
+    return list;
+  }
+
+  /** Roman numeral of a chord name within a key, or null when it is outside the key. */
+  function romanIn(name, tonic, mode) {
+    const c = parseChordName(name);
+    if (!c) return null;
+    const hit = [...keyChords(tonic, mode, false), ...keyChords(tonic, mode, true)].find(k => k.root === c.root && k.quality === c.quality);
+    return hit ? hit.roman : null;
+  }
+
   window.Theory = {
+    keyChords, romanIn,
     degree, hasSeventh,
     NOTES, INSTRUMENTS, QUALITIES, QUALITY_BY_ID, pc, noteName, parseNote, parseChordName, chordName,
     detect, autoFinger, findVoicings, parseFrets, fretsCode, parseFingers, fingersCode,

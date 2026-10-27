@@ -13,15 +13,22 @@
   const synthCache = new Map();
   let samples = null;        // Map midi -> AudioBuffer once loaded
   let loading = null;
+  const live = new Set();    // voices scheduled on the live context, so they can be stopped
+
+  /** Gain and compressor chain shared by live playback and offline rendering. */
+  function chain(c) {
+    const gain = c.createGain();
+    gain.gain.value = 0.6;
+    const comp = c.createDynamicsCompressor();
+    comp.threshold.value = -14;
+    gain.connect(comp).connect(c.destination);
+    return gain;
+  }
 
   function context() {
     if (!ctx) {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
-      master = ctx.createGain();
-      master.gain.value = 0.6;
-      const comp = ctx.createDynamicsCompressor();
-      comp.threshold.value = -14;
-      master.connect(comp).connect(ctx.destination);
+      master = chain(ctx);
     }
     if (ctx.state === 'suspended') ctx.resume();
     return ctx;
@@ -43,6 +50,7 @@
 
   /** Wait briefly for the samples so the first strum sounds right, but never block for long. */
   function ready(timeout = 1500) {
+    context();
     if (samples) return Promise.resolve(samples);
     return Promise.race([loadSamples(), new Promise(res => setTimeout(() => res(null), timeout))]);
   }
@@ -51,20 +59,6 @@
     let best = null;
     for (const m of samples.keys()) if (best == null || Math.abs(m - midi) < Math.abs(best - midi)) best = m;
     return best;
-  }
-
-  function sampleNote(midi, when, gain) {
-    const c = context();
-    const base = nearestSample(midi);
-    const src = c.createBufferSource();
-    src.buffer = samples.get(base);
-    src.playbackRate.value = Math.pow(2, (midi - base) / 12);
-    const g = c.createGain();
-    g.gain.setValueAtTime(gain, when);
-    g.gain.setTargetAtTime(0, when + 2.6, 0.35);
-    src.connect(g).connect(master);
-    src.start(when);
-    src.stop(when + 4.5);
   }
 
   function synthBuffer(midi) {
@@ -93,32 +87,125 @@
     return buf;
   }
 
-  function synthNote(midi, when, gain) {
-    const c = context();
+  /**
+   * One plucked note on context c, routed to dest. `ring` is how long it sustains before
+   * fading; returns the voice so live playback can cut it short.
+   */
+  function voice(c, dest, midi, when, gain, ring) {
     const src = c.createBufferSource();
-    src.buffer = synthBuffer(midi);
+    let level = gain;
+    if (samples) {
+      const base = nearestSample(midi);
+      src.buffer = samples.get(base);
+      src.playbackRate.value = Math.pow(2, (midi - base) / 12);
+    } else {
+      src.buffer = synthBuffer(midi);
+      level *= 0.55;
+    }
     const g = c.createGain();
-    g.gain.setValueAtTime(gain * 0.55, when);
-    g.gain.setTargetAtTime(0, when + 1.9, 0.25);
-    src.connect(g).connect(master);
+    g.gain.setValueAtTime(level, when);
+    g.gain.setTargetAtTime(0, when + ring, ring > 1 ? 0.35 : 0.08);
+    src.connect(g).connect(dest);
     src.start(when);
-    src.stop(when + 3);
+    src.stop(when + ring + (ring > 1 ? 2 : 0.6));
+    return { src, g };
   }
 
-  const note = (midi, when, gain) => (samples ? sampleNote : synthNote)(midi, when, gain);
+  /** Notes in string order. Up-strums go high to low and a bit faster. */
+  function strumOn(c, dest, notes, when, { gain = 0.8, up = false, ring = 2.6, gap } = {}) {
+    const order = up ? notes.slice().reverse() : notes;
+    const step = gap ?? (up ? 0.022 : 0.032);
+    return order.map((m, i) => voice(c, dest, m, when + i * step, gain - i * 0.03, ring));
+  }
+
+  function track(voices) {
+    voices.forEach(v => { live.add(v); v.src.onended = () => live.delete(v); });
+  }
 
   /** Strum a list of midi notes in string order (lowest string first). */
   async function strum(notes, gap = 0.04) {
-    context();
     await ready();
-    const t = ctx.currentTime + 0.02;
-    notes.forEach((m, i) => note(m, t + i * gap, 0.8 - i * 0.03));
+    track(strumOn(ctx, master, notes, ctx.currentTime + 0.02, { gap }));
   }
 
   async function pluck(midi) {
-    context();
     await ready(600);
-    note(midi, ctx.currentTime + 0.01, 0.85);
+    track([voice(ctx, master, midi, ctx.currentTime + 0.01, 0.85, 2.6)]);
+  }
+
+  /** Schedule a strum at an absolute time on the live context (for the sequencer). */
+  function strumAt(notes, when, opts) {
+    context();
+    track(strumOn(ctx, master, notes, when, opts));
+  }
+
+  function clickOn(c, dest, when, accent) {
+    const osc = c.createOscillator();
+    const g = c.createGain();
+    osc.frequency.value = accent ? 1760 : 1320;
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(accent ? 0.35 : 0.2, when + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + 0.05);
+    osc.connect(g).connect(dest);
+    osc.start(when);
+    osc.stop(when + 0.06);
+    return { src: osc, g };
+  }
+
+  function clickAt(when, accent) {
+    context();
+    track([clickOn(ctx, master, when, accent)]);
+  }
+
+  /** Fade out everything that is sounding or scheduled. */
+  function stopAll() {
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    live.forEach(v => {
+      try {
+        v.g.gain.cancelScheduledValues(now);
+        v.g.gain.setTargetAtTime(0, now, 0.04);
+        v.src.stop(now + 0.3);
+      } catch { /* already stopped */ }
+    });
+    live.clear();
+  }
+
+  /**
+   * Render a list of events to a WAV blob.
+   * events: [{ time, notes, gain, up, ring }] or [{ time, click: true, accent }]
+   */
+  async function renderWav(events, seconds) {
+    await ready(4000);
+    const sr = 44100;
+    const off = new OfflineAudioContext(2, Math.ceil(sr * seconds), sr);
+    const dest = chain(off);
+    events.forEach(e => {
+      if (e.click) clickOn(off, dest, e.time, e.accent);
+      else strumOn(off, dest, e.notes, e.time, e);
+    });
+    const buf = await off.startRendering();
+    return encodeWav(buf);
+  }
+
+  function encodeWav(buf) {
+    const ch = buf.numberOfChannels, len = buf.length, sr = buf.sampleRate;
+    const data = new DataView(new ArrayBuffer(44 + len * ch * 2));
+    const str = (o, s) => [...s].forEach((c, i) => data.setUint8(o + i, c.charCodeAt(0)));
+    str(0, 'RIFF'); data.setUint32(4, 36 + len * ch * 2, true); str(8, 'WAVE');
+    str(12, 'fmt '); data.setUint32(16, 16, true); data.setUint16(20, 1, true); data.setUint16(22, ch, true);
+    data.setUint32(24, sr, true); data.setUint32(28, sr * ch * 2, true); data.setUint16(32, ch * 2, true); data.setUint16(34, 16, true);
+    str(36, 'data'); data.setUint32(40, len * ch * 2, true);
+    const chans = [...Array(ch)].map((_, i) => buf.getChannelData(i));
+    let o = 44;
+    for (let i = 0; i < len; i++) {
+      for (let c = 0; c < ch; c++) {
+        const v = Math.max(-1, Math.min(1, chans[c][i]));
+        data.setInt16(o, v < 0 ? v * 0x8000 : v * 0x7fff, true);
+        o += 2;
+      }
+    }
+    return new Blob([data], { type: 'audio/wav' });
   }
 
   // Start fetching on the first interaction so the first strum is usually already sampled.
@@ -128,5 +215,8 @@
     loadSamples();
   }, { once: true });
 
-  window.Sound = { strum, pluck };
+  window.Sound = {
+    strum, pluck, ready, strumAt, clickAt, stopAll, renderWav,
+    now: () => context().currentTime,
+  };
 })();
