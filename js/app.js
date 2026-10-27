@@ -22,7 +22,7 @@
   };
 
   const prefs = Object.assign({
-    rows: 5, labels: 'fingers', showFingers: true, showNotes: false, markRoot: false, lefty: false, sound: true,
+    rows: 5, labels: 'fingers', showFingers: true, showNotes: true, markRoot: true, lefty: false, sound: true,
     format: 'png', size: 2, bg: 'light', theme: null,
   }, read(STORE_PREFS, {}));
 
@@ -222,7 +222,23 @@
   $('auto-fingers').addEventListener('click', () => { state.fingersAuto = true; refreshAuto(); update(); });
 
   $('name').addEventListener('input', e => {
-    state.name = e.target.value;
+    const typed = e.target.value;
+    const parsed = T.parseChordName(typed);
+    // A recognised name loads its first voicing as you type, keeping the text as written.
+    if (parsed && (parsed.root !== state.lib.root || parsed.quality !== state.lib.quality || !T.parseChordName(state.name))) {
+      state.lib.root = parsed.root;
+      state.lib.quality = parsed.quality;
+      renderLibrary();
+      const v = currentVoicings()[0];
+      if (v) {
+        loadVoicing(v);
+        state.name = typed;
+        state.nameAuto = false;
+        update();
+        return;
+      }
+    }
+    state.name = typed;
     state.nameAuto = false;
     renderDetected();
     renderBoard();
