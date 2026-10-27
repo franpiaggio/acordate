@@ -44,7 +44,7 @@
     const v = voicing(chord);
     if (!v) return [];
     const midi = T.INSTRUMENTS[A.instrument()].midi;
-    return v.frets.map((f, s) => (f >= 0 ? midi[s] + f : null)).filter(n => n != null);
+    return v.frets.map((f, s) => (f >= 0 ? { m: midi[s] + f, s } : null)).filter(Boolean);
   }
   const keyChords = () => T.keyChords(comp.key, comp.mode, comp.sevenths);
 
@@ -384,16 +384,18 @@
    * (alt: the next string up), P one picked string: b/b2 bass side, r1..r3 from the top.
    */
   const D_ = g => ({ k: 'D', g }), U_ = g => ({ k: 'U', g }), B_ = (g, alt) => ({ k: 'B', g, alt }), P_ = (r, g = 0.5) => ({ k: 'P', r, g });
+  const X_ = g => ({ k: 'X', g }); // muted stroke
   const STYLES = {
     4: [
-      { id: 'suave', label: 'Suave', slots: [D_(0.72), 0, 0, 0, 0, 0, 0, 0] },
+      { id: 'suave', label: 'Un golpe', slots: [D_(0.72), 0, 0, 0, 0, 0, 0, 0] },
       { id: 'balada', label: 'Balada', slots: [D_(0.8), 0, D_(0.5), 0, D_(0.66), U_(0.4), D_(0.5), U_(0.36)] },
       { id: 'pop', label: 'Pop', slots: [D_(0.8), 0, D_(0.56), U_(0.42), 0, U_(0.44), D_(0.6), U_(0.38)] },
+      { id: 'ritmico', label: 'Rítmico', slots: [D_(0.8), 0, X_(0.7), U_(0.4), 0, U_(0.42), X_(0.66), U_(0.38)] },
       { id: 'folk', label: 'Folk', slots: [B_(0.85), 0, D_(0.5), U_(0.3), B_(0.75, true), 0, D_(0.5), U_(0.3)] },
       { id: 'arpegio', label: 'Arpegio', slots: [P_('b', 0.72), P_('r3'), P_('r2'), P_('r1', 0.46), P_('b2', 0.6), P_('r3'), P_('r2'), P_('r1', 0.42)] },
     ],
     3: [
-      { id: 'suave', label: 'Suave', slots: [D_(0.72), 0, 0, 0, 0, 0] },
+      { id: 'suave', label: 'Un golpe', slots: [D_(0.72), 0, 0, 0, 0, 0] },
       { id: 'vals', label: 'Vals', slots: [B_(0.85), 0, D_(0.46), 0, D_(0.42), 0] },
       { id: 'balada', label: 'Balada', slots: [D_(0.8), 0, D_(0.5), U_(0.4), D_(0.5), U_(0.36)] },
       { id: 'arpegio', label: 'Arpegio', slots: [P_('b', 0.72), P_('r3'), P_('r2'), P_('r1', 0.46), P_('r2'), P_('r3')] },
@@ -430,13 +432,16 @@
         const time = t + h * slotDur + jitter(i === 0 ? 0.003 : 0.007);
         const gain = slot.g * (0.92 + Math.random() * 0.14);
         const remaining = (slots.length - i) * slotDur;
-        if (slot.k === 'D' || slot.k === 'U') {
-          const next = slotsUntilNext(slots, i, ['D', 'U', 'B']);
+        if (slot.k === 'X') {
+          out.push({ time, chuck: true, notes: notes.slice(-Math.max(3, notes.length - 1)), gain });
+        } else if (slot.k === 'D' || slot.k === 'U') {
+          const next = slotsUntilNext(slots, i, ['D', 'U', 'B', 'X']);
           const ring = next.wraps && nextEmpty ? remaining + 2 : next.d * slotDur + 0.05;
           // Lighter strokes catch fewer strings: soft downs skip the bass, ups only reach the top ones.
           const set = slot.k === 'U' ? notes.slice(-Math.min(4, notes.length))
             : slot.g < 0.6 ? notes.slice(-Math.max(3, notes.length - 2)) : notes;
-          const gap = slot.k === 'U' ? 0.014 + Math.random() * 0.006 : 0.03 - slot.g * 0.016 + Math.random() * 0.006;
+          // Harder strokes sweep faster: about 40-70 ms across six strings.
+          const gap = slot.k === 'U' ? 0.007 + Math.random() * 0.004 : 0.016 - slot.g * 0.008 + Math.random() * 0.003;
           out.push({ time, notes: set, up: slot.k === 'U', gain, ring, gap });
         } else if (slot.k === 'B') {
           const n = slot.alt && notes.length > 1 ? notes[1] : notes[0];
@@ -457,7 +462,7 @@
     const now = S.now();
     while (nextTime < now + 0.15) {
       const { out, bar, beat } = beatEvents(step, nextTime, comp.metro);
-      out.forEach(e => (e.click ? S.clickAt(e.time, e.accent) : S.strumAt(e.notes, e.time, e)));
+      out.forEach(e => (e.click ? S.clickAt(e.time, e.accent) : e.chuck ? S.chuckAt(e.notes, e.time, e.gain) : S.strumAt(e.notes, e.time, e)));
       queue.push({ t: nextTime, bar, beat });
       nextTime += 60 / comp.bpm;
       step++;
@@ -632,13 +637,13 @@
     const beatDur = 60 / comp.bpm;
     const toTick = sec => Math.max(0, Math.round((sec / beatDur) * tpq));
     for (let st = 0; st < comp.bars.length * comp.meter; st++) {
-      beatEvents(st, st * beatDur, false).out.forEach(e => {
+      beatEvents(st, st * beatDur, false).out.filter(e => !e.chuck).forEach(e => {
         const vel = Math.max(20, Math.min(120, Math.round(e.gain * 130)));
         const order = e.up ? e.notes.slice().reverse() : e.notes;
-        order.forEach((n, j) => {
+        order.forEach(({ m }, j) => {
           const on = toTick(e.time + j * (e.gap || 0.02));
-          ev.push({ tick: on, bytes: [0x90, n, vel], order: 2 });
-          ev.push({ tick: Math.max(on + 1, toTick(e.time + Math.min(e.ring, 4))), bytes: [0x80, n, 0], order: 1 });
+          ev.push({ tick: on, bytes: [0x90, m, vel], order: 2 });
+          ev.push({ tick: Math.max(on + 1, toTick(e.time + Math.min(e.ring, 4))), bytes: [0x80, m, 0], order: 1 });
         });
       });
     }

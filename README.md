@@ -41,7 +41,7 @@ Acordate es un generador de diagramas de acordes. Tocas el diapasón, escuchas c
 - Arrastra acordes a los compases, o toca un compás y después un acorde. Arrastrar un compás sobre otro los intercambia.
 - Crea acordes propios dibujándolos en el diapasón sin salir del compositor. Quedan como fichas para reusarlos.
 - Toca un compás para cambiar su acorde: ves sus variantes (maj7, sus4, add9…) y otras posiciones en el mástil.
-- Reproduce la secuencia en bucle con estilos de rasgueo (Suave, Balada, Pop, Folk, Arpegio y Vals en 3/4) y metrónomo opcional. Prueba progresiones típicas con un toque.
+- Reproduce la secuencia en bucle con estilos de rasgueo (Un golpe, Balada, Pop, Rítmico, Folk, Arpegio y Vals en 3/4) y metrónomo opcional. Prueba progresiones típicas con un toque.
 - Exporta la progresión como imagen PNG, audio WAV, archivo MIDI, texto o enlace.
 
 **Favoritos**

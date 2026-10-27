@@ -91,13 +91,31 @@
    * One plucked note on context c, routed to dest. `ring` is how long it sustains before
    * fading; returns the voice so live playback can cut it short.
    */
-  function voice(c, dest, midi, when, gain, ring) {
+  // The voice currently ringing on each string, per context: a new note on a string damps the old one.
+  const stringVoices = new WeakMap();
+  function damp(c, string, when) {
+    if (string == null) return;
+    let map = stringVoices.get(c);
+    if (!map) stringVoices.set(c, (map = new Map()));
+    const prev = map.get(string);
+    if (prev && prev.until > when) {
+      try {
+        prev.g.gain.cancelScheduledValues(when);
+        prev.g.gain.setTargetAtTime(0, when, 0.012);
+      } catch { /* already finished */ }
+    }
+    return map;
+  }
+
+  function voice(c, dest, midi, when, gain, ring, string) {
     const src = c.createBufferSource();
     let level = gain;
+    // A few cents of drift per note stands in for a real player's touch.
+    const cents = (Math.random() - 0.5) * 8;
     if (samples) {
       const base = nearestSample(midi);
       src.buffer = samples.get(base);
-      src.playbackRate.value = Math.pow(2, (midi - base) / 12);
+      src.playbackRate.value = Math.pow(2, (midi - base + cents / 100) / 12);
     } else {
       src.buffer = synthBuffer(midi);
       level *= 0.55;
@@ -107,16 +125,70 @@
     g.gain.setTargetAtTime(0, when + ring, ring > 1 ? 0.35 : 0.08);
     src.connect(g).connect(dest);
     src.start(when);
-    src.stop(when + ring + (ring > 1 ? 2 : 0.6));
+    const end = when + ring + (ring > 1 ? 2 : 0.6);
+    src.stop(end);
+    const v = { src, g, until: end };
+    damp(c, string, when)?.set(string, v);
+    return v;
+  }
+
+  // Shared white noise for pick attacks and muted strokes.
+  const noiseCache = new WeakMap();
+  function noise(c) {
+    if (!noiseCache.has(c)) {
+      const buf = c.createBuffer(1, Math.floor(c.sampleRate * 0.25), c.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      noiseCache.set(c, buf);
+    }
+    return noiseCache.get(c);
+  }
+
+  /** Short filtered noise burst: the pick or the palm hitting the strings. */
+  function burst(c, dest, when, { gain, freq, q = 0.9, decay }) {
+    const src = c.createBufferSource();
+    src.buffer = noise(c);
+    const f = c.createBiquadFilter();
+    f.type = 'bandpass';
+    f.frequency.value = freq;
+    f.Q.value = q;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(gain, when + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + decay);
+    src.connect(f).connect(g).connect(dest);
+    src.start(when);
+    src.stop(when + decay + 0.02);
     return { src, g };
   }
 
+  const midiOf = n => (typeof n === 'number' ? n : n.m);
+  const stringOf = n => (typeof n === 'number' ? null : n.s);
+
   /** Notes in string order. Up-strums go high to low and a bit faster. */
+  /**
+   * Notes in string order (numbers, or { m, s } with the string index). Up-strums go high
+   * to low and a bit faster; the first strings the pick meets sound strongest.
+   */
   function strumOn(c, dest, notes, when, { gain = 0.8, up = false, ring = 2.6, gap } = {}) {
     const order = up ? notes.slice().reverse() : notes;
-    const step = gap ?? (up ? 0.022 : 0.032);
-    // Each string sounds a touch different, like a real hand across the strings.
-    return order.map((m, i) => voice(c, dest, m, when + i * step * (0.85 + Math.random() * 0.3), (gain - i * 0.025) * (0.9 + Math.random() * 0.15), ring));
+    const step = gap ?? (up ? 0.009 : 0.013);
+    let t = when;
+    const voices = order.map((n, i) => {
+      const v = voice(c, dest, midiOf(n), t, gain * (1 - i * 0.05) * (0.9 + Math.random() * 0.15), ring, stringOf(n));
+      t += step * (0.75 + Math.random() * 0.5);
+      return v;
+    });
+    // A faint pick scrape gives the stroke its edge.
+    if (notes.length > 2) voices.push(burst(c, dest, when, { gain: gain * 0.05, freq: up ? 3200 : 2400, decay: 0.03 }));
+    return voices;
+  }
+
+  /** Muted stroke ("chasquido"): the strumming hand slaps the strings, with a hint of pitch. */
+  function chuckOn(c, dest, notes, when, gain = 0.6) {
+    const out = [burst(c, dest, when, { gain: gain * 0.35, freq: 1500, q: 0.7, decay: 0.07 })];
+    notes.forEach((n, i) => out.push(voice(c, dest, midiOf(n), when + i * 0.006, gain * 0.28, 0.035, stringOf(n))));
+    return out;
   }
 
   function track(voices) {
@@ -138,6 +210,11 @@
   function strumAt(notes, when, opts) {
     context();
     track(strumOn(ctx, master, notes, when, opts));
+  }
+
+  function chuckAt(notes, when, gain) {
+    context();
+    track(chuckOn(ctx, master, notes, when, gain));
   }
 
   function clickOn(c, dest, when, accent) {
@@ -183,6 +260,7 @@
     const dest = chain(off);
     events.forEach(e => {
       if (e.click) clickOn(off, dest, e.time, e.accent);
+      else if (e.chuck) chuckOn(off, dest, e.notes, e.time, e.gain);
       else strumOn(off, dest, e.notes, e.time, e);
     });
     const buf = await off.startRendering();
@@ -217,7 +295,7 @@
   }, { once: true });
 
   window.Sound = {
-    strum, pluck, ready, strumAt, clickAt, stopAll, renderWav,
+    strum, pluck, ready, strumAt, chuckAt, clickAt, stopAll, renderWav,
     now: () => context().currentTime,
   };
 })();
