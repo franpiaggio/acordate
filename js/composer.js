@@ -412,7 +412,7 @@
    * the top, C a finger pinch on the top strings. `len` cuts a stroke short (in slots). A slot
    * can hold several hits; `alt` slots play on every second bar; `swing` delays the offbeats.
    */
-  const D_ = (g, len) => ({ k: 'D', g, len }), U_ = (g, len) => ({ k: 'U', g, len }), B_ = (g, alt) => ({ k: 'B', g, alt }), P_ = (r, g = 0.62) => ({ k: 'P', r, g });
+  const D_ = (g, len) => ({ k: 'D', g, len }), U_ = (g, len) => ({ k: 'U', g, len }), B_ = (g, alt, len) => ({ k: 'B', g, alt, len }), P_ = (r, g = 0.62) => ({ k: 'P', r, g });
   const X_ = g => ({ k: 'X', g }); // muted stroke
   const C_ = (g, ant) => ({ k: 'C', g, ant }); // ant: anticipates the next bar's chord
   const STYLES = {
@@ -427,11 +427,12 @@
        * João Gilberto's batida: each 4/4 bar here is one Brazilian 2/4 bar ("tuuum tchááá tum
        * tchááá"). Thumb on 1 and 3, fingers on 1, 2 and 3&; every second bar, where chords
        * usually change, the fingers anticipate the next chord on 4& and its downbeat is thumb only.
+       * The thumb stays under the fingers: softer and lifted before the next bass note.
        */
       {
         id: 'bossa', label: 'Bossa nova', tone: 2600, intro: C_(0.64),
-        slots: [B_(0.72), 0, C_(0.62), 0, B_(0.76, true), C_(0.66), 0, 0],
-        alt: [[B_(0.72), C_(0.64)], 0, C_(0.6), 0, B_(0.76, true), C_(0.66), 0, C_(0.6, true)],
+        slots: [B_(0.54, false, 3), 0, C_(0.62), 0, B_(0.58, true, 3), C_(0.66), 0, 0],
+        alt: [[B_(0.54, false, 3), C_(0.64)], 0, C_(0.6), 0, B_(0.58, true, 3), C_(0.66), 0, C_(0.6, true)],
       },
       { id: 'swing', label: 'Swing', slots: [D_(0.5, 1.4), 0, D_(0.58, 1.2), 0, D_(0.5, 1.4), 0, D_(0.58, 1.2), 0] },
       { id: 'shuffle', label: 'Shuffle', swing: 0.33, slots: [D_(0.74), U_(0.3), D_(0.55), U_(0.3), D_(0.68), U_(0.3), D_(0.55), U_(0.34)] },
@@ -536,7 +537,8 @@
           } else if (slot.k === 'B') {
             const n = slot.alt ? altBass(notes, chord) : notes[0];
             const next = slotsUntilNext(slots, after, i, ['B']);
-            out.push({ time, notes: [n], gain, ring: next.wraps && nextEmpty ? remaining + 2 : next.d * slotDur + 0.1, tone });
+            const ring = next.wraps && nextEmpty ? remaining + 2 : slot.len ? slot.len * slotDur : next.d * slotDur + 0.1;
+            out.push({ time, notes: [n], gain, ring, tone });
           } else if (slot.k === 'C') {
             // Index, middle and ring pluck the top three strings at once (four voices with the
             // thumb) and lift a little before the next pinch, as in João Gilberto's recordings.
