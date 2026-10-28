@@ -727,6 +727,7 @@
     $('view-editor').hidden = next !== 'editor';
     $('view-favs').hidden = next !== 'favs';
     $('view-comp').hidden = next !== 'comp';
+    $('comp-lib').hidden = next !== 'comp';
     if (next !== 'comp') window.Composer?.stop();
     document.querySelectorAll('.views [data-view]').forEach(b => {
       if (b.dataset.view === next) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');

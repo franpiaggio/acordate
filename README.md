@@ -37,11 +37,12 @@ Acordate es un generador de diagramas de acordes. Tocas el diapasón, escuchas c
 - Copia la imagen al portapapeles o comparte un enlace que abre el mismo acorde.
 
 **Compositor**
-- Elige una tonalidad (mayor o menor) y el compás (4/4 o 3/4). La app te muestra los acordes de esa tonalidad con su grado (I, ii, V…).
+- Elige una tonalidad (mayor o menor) y el compás (4/4, 3/4 o 6/8). La app te muestra los acordes de esa tonalidad con su grado (I, ii, V…).
 - Arrastra acordes a los compases, o toca un compás y después un acorde. Arrastrar un compás sobre otro los intercambia.
 - Crea acordes propios dibujándolos en el diapasón sin salir del compositor. Quedan como fichas para reusarlos.
 - Toca un compás para cambiar su acorde: ves sus variantes (maj7, sus4, add9…) y otras posiciones en el mástil.
-- Reproduce la secuencia en bucle con estilos de rasgueo (Un golpe, Balada, Pop, Rítmico, Folk, Arpegio y Vals en 3/4) y metrónomo opcional. Prueba progresiones típicas con un toque.
+- Reproduce la secuencia en bucle con estilos de rasgueo y metrónomo opcional. En 4/4: Un golpe, Balada, Pop, Rítmico, Folk, Arpegio, Bossa nova, Swing, Shuffle, Reggae, Tango y Milonga. En 3/4: Vals. En 6/8: Balada, Arpegio, Chacarera y Zamba.
+- La biblioteca trae unas 50 progresiones típicas de 12 géneros (pop, rock, blues, jazz, bossa nova, folklore, tango, latino, reggae, soul y funk, folk y country, baladas), cada una con su compás, tempo y rasgueo. Un toque la carga y la reproduce, y puede pasarse a tu tónica.
 - Exporta la progresión como imagen PNG, audio WAV, archivo MIDI, texto o enlace.
 
 **Favoritos**
@@ -75,7 +76,7 @@ https://franpiaggio.github.io/acordate/#D.png?p=xx0232&f=---132
 - `i=uke`: ukelele.
 - `w=5`: fija el traste inicial del diagrama.
 - `#favoritos` abre la sección de favoritos.
-- `#compositor?k=0&m=major&t=4&bpm=90&s=C,G,Am,F` abre el compositor con esa progresión (`k` tónica de 0 a 11, `m` major o minor, `t` 3 o 4, `-` deja un compás vacío).
+- `#compositor?k=0&m=major&t=4&bpm=90&s=C,G,Am,F` abre el compositor con esa progresión (`k` tónica de 0 a 11, `m` major o minor, `t` 3, 4 o 6 para 6/8, `-` deja un compás vacío).
 
 ## Correrlo en tu computadora
 
@@ -98,6 +99,7 @@ js/render.js        dibuja los diagramas en SVG (editor, miniaturas y descargas)
 js/audio.js         reproducción con muestras y sintetizador de respaldo
 js/app.js           estado, interfaz, vistas, enlaces, descargas y favoritos
 js/composer.js      compositor: tonalidad, compases, reproducción y exportación
+js/library.js       biblioteca de progresiones por género
 assets/guitar/      grabaciones por cuerda (trastes 0 a 12, tres intensidades) y su tabla de volumen
 assets/samples/     13 muestras de respaldo
 docs/               capturas para este README

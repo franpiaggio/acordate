@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css?v=30">
+  <link rel="stylesheet" href="css/styles.css?v=34">
 </head>
 <body>
   <header class="topbar">
@@ -25,6 +25,9 @@
       <button data-view="favs">Favoritos <span class="count" id="fav-count" hidden></span></button>
     </nav>
     <div class="topbar-end">
+      <button class="icon-btn" id="comp-lib" aria-label="Biblioteca de progresiones" aria-haspopup="dialog" title="Biblioteca de progresiones" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h4v15H5zM10.5 4.5h4v15h-4zM16 5.2l3.4-.9 3 14.4-3.4.9z"/></svg>
+      </button>
       <button class="icon-btn" id="open-settings" aria-label="Ajustes" aria-haspopup="dialog" title="Ajustes">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.3 3.6a1.7 1.7 0 0 1 3.4 0l.1.8a1.7 1.7 0 0 0 2.5 1.1l.7-.4a1.7 1.7 0 0 1 2.4 2.4l-.4.7a1.7 1.7 0 0 0 1.1 2.5l.8.1a1.7 1.7 0 0 1 0 3.4l-.8.1a1.7 1.7 0 0 0-1.1 2.5l.4.7a1.7 1.7 0 0 1-2.4 2.4l-.7-.4a1.7 1.7 0 0 0-2.5 1.1l-.1.8a1.7 1.7 0 0 1-3.4 0l-.1-.8a1.7 1.7 0 0 0-2.5-1.1l-.7.4a1.7 1.7 0 0 1-2.4-2.4l.4-.7a1.7 1.7 0 0 0-1.1-2.5l-.8-.1a1.7 1.7 0 0 1 0-3.4l.8-.1a1.7 1.7 0 0 0 1.1-2.5l-.4-.7a1.7 1.7 0 0 1 2.4-2.4l.7.4a1.7 1.7 0 0 0 2.5-1.1l.1-.8Z"/><circle cx="12" cy="12" r="3"/></svg>
       </button>
@@ -158,6 +161,7 @@
         <div class="seg small" role="radiogroup" aria-label="Compás" id="comp-meter">
           <button role="radio" data-value="4" aria-checked="true">4/4</button>
           <button role="radio" data-value="3" aria-checked="false">3/4</button>
+          <button role="radio" data-value="6" aria-checked="false">6/8</button>
         </div>
       </div>
       <div class="ctl">
@@ -191,7 +195,7 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 4h4M8 7l.7 11.2a1.5 1.5 0 0 0 1.5 1.3h3.6a1.5 1.5 0 0 0 1.5-1.3L16 7M10.5 10.5v6M13.5 10.5v6"/></svg>
         </button>
         <div class="menu-wrap">
-          <button class="btn" id="comp-export" aria-haspopup="menu" aria-expanded="false">
+          <button class="btn ghost" id="comp-export" aria-haspopup="menu" aria-expanded="false">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg>
             <span>Exportar</span>
           </button>
@@ -214,7 +218,9 @@
     <section class="palette" aria-label="Acordes de la tonalidad">
       <div class="chips" id="comp-chips"></div>
       <div class="palette-foot">
-        <div class="presets" id="comp-presets" aria-label="Progresiones para probar"></div>
+        <div class="presets-row">
+          <div class="presets" id="comp-presets" aria-label="Progresiones para probar"></div>
+        </div>
         <label class="mini-switch"><input type="checkbox" id="comp-sevenths"><span>Séptimas</span></label>
       </div>
     </section>
@@ -295,6 +301,23 @@
     </div>
   </dialog>
 
+  <dialog class="lib-dialog" id="lib-dialog" aria-labelledby="lib-title">
+    <div class="lib-head">
+      <div>
+        <h2 id="lib-title">Biblioteca de progresiones</h2>
+        <p class="note">Secuencias típicas de cada género, con su compás, tempo y rasgueo. Toca una para cargarla y escucharla.</p>
+      </div>
+      <button class="icon-btn small" id="lib-close" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <div class="lib-genres" id="lib-genres" role="radiogroup" aria-label="Género"></div>
+    <ul class="lib-list" id="lib-list"></ul>
+    <div class="lib-foot">
+      <label class="mini-switch"><input type="checkbox" id="lib-keep"><span id="lib-keep-label">Pasar a mi tonalidad</span></label>
+    </div>
+  </dialog>
+
   <dialog class="settings" id="settings" aria-labelledby="settings-title">
     <div class="settings-head">
       <h2 id="settings-title">Ajustes</h2>
@@ -360,8 +383,9 @@
 
   <script src="js/theory.js?v=30"></script>
   <script src="js/render.js?v=30"></script>
-  <script src="js/audio.js?v=30"></script>
-  <script src="js/app.js?v=30"></script>
-  <script src="js/composer.js?v=30"></script>
+  <script src="js/audio.js?v=32"></script>
+  <script src="js/app.js?v=31"></script>
+  <script src="js/library.js?v=32"></script>
+  <script src="js/composer.js?v=39"></script>
 </body>
 </html>

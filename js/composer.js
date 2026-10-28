@@ -408,10 +408,13 @@
 
   /*
    * Strumming styles on an eighth-note grid. D down, U up (top strings only), B bass note
-   * (alt: the next string up), P one picked string: b/b2 bass side, r1..r3 from the top.
+   * (alt: the fifth, or the next string up), P one picked string: b/b2 bass side, r1..r3 from
+   * the top, C a finger pinch on the top strings. `len` cuts a stroke short (in slots). A slot
+   * can hold several hits; `alt` slots play on every second bar; `swing` delays the offbeats.
    */
-  const D_ = g => ({ k: 'D', g }), U_ = g => ({ k: 'U', g }), B_ = (g, alt) => ({ k: 'B', g, alt }), P_ = (r, g = 0.62) => ({ k: 'P', r, g });
+  const D_ = (g, len) => ({ k: 'D', g, len }), U_ = (g, len) => ({ k: 'U', g, len }), B_ = (g, alt) => ({ k: 'B', g, alt }), P_ = (r, g = 0.62) => ({ k: 'P', r, g });
   const X_ = g => ({ k: 'X', g }); // muted stroke
+  const C_ = (g, ant) => ({ k: 'C', g, ant }); // ant: anticipates the next bar's chord
   const STYLES = {
     4: [
       { id: 'suave', label: 'Un golpe', slots: [D_(0.72), 0, 0, 0, 0, 0, 0, 0] },
@@ -420,6 +423,21 @@
       { id: 'ritmico', label: 'Rítmico', slots: [D_(0.8), 0, X_(0.7), U_(0.4), 0, U_(0.42), X_(0.66), U_(0.38)] },
       { id: 'folk', label: 'Folk', slots: [B_(0.85), 0, D_(0.5), U_(0.3), B_(0.75, true), 0, D_(0.5), U_(0.3)] },
       { id: 'arpegio', label: 'Arpegio', slots: [P_('b', 0.72), P_('r3'), P_('r2'), P_('r1', 0.46), P_('b2', 0.6), P_('r3'), P_('r2'), P_('r1', 0.42)] },
+      /*
+       * João Gilberto's batida: each 4/4 bar here is one Brazilian 2/4 bar ("tuuum tchááá tum
+       * tchááá"). Thumb on 1 and 3, fingers on 1, 2 and 3&; every second bar, where chords
+       * usually change, the fingers anticipate the next chord on 4& and its downbeat is thumb only.
+       */
+      {
+        id: 'bossa', label: 'Bossa nova', tone: 2600, intro: C_(0.64),
+        slots: [B_(0.72), 0, C_(0.62), 0, B_(0.76, true), C_(0.66), 0, 0],
+        alt: [[B_(0.72), C_(0.64)], 0, C_(0.6), 0, B_(0.76, true), C_(0.66), 0, C_(0.6, true)],
+      },
+      { id: 'swing', label: 'Swing', slots: [D_(0.5, 1.4), 0, D_(0.58, 1.2), 0, D_(0.5, 1.4), 0, D_(0.58, 1.2), 0] },
+      { id: 'shuffle', label: 'Shuffle', swing: 0.33, slots: [D_(0.74), U_(0.3), D_(0.55), U_(0.3), D_(0.68), U_(0.3), D_(0.55), U_(0.34)] },
+      { id: 'reggae', label: 'Reggae', slots: [0, 0, D_(0.52, 0.7), 0, 0, 0, D_(0.52, 0.7), U_(0.28, 0.5)] },
+      { id: 'marcato', label: 'Tango', slots: [D_(0.78, 1.2), 0, D_(0.58, 1.1), 0, D_(0.74, 1.2), 0, D_(0.58, 1.1), 0] },
+      { id: 'milonga', label: 'Milonga', slots: [B_(0.8), 0, 0, B_(0.62, true), 0, 0, D_(0.58), 0] },
     ],
     3: [
       { id: 'suave', label: 'Un golpe', slots: [D_(0.72), 0, 0, 0, 0, 0] },
@@ -427,59 +445,112 @@
       { id: 'balada', label: 'Balada', slots: [D_(0.8), 0, D_(0.5), U_(0.4), D_(0.5), U_(0.36)] },
       { id: 'arpegio', label: 'Arpegio', slots: [P_('b', 0.72), P_('r3'), P_('r2'), P_('r1', 0.46), P_('r2'), P_('r3')] },
     ],
+    // 6/8 counts two dotted-quarter beats of three eighths each.
+    6: [
+      { id: 'suave', label: 'Un golpe', slots: [D_(0.72), 0, 0, 0, 0, 0] },
+      { id: 'balada', label: 'Balada', slots: [D_(0.78), 0, U_(0.36), D_(0.6), 0, U_(0.36)] },
+      { id: 'arpegio', label: 'Arpegio', slots: [P_('b', 0.72), P_('r3'), P_('r2'), P_('r1', 0.46), P_('r2'), P_('r3')] },
+      // Chasquido on each dotted quarter; the low strings lean on the 2nd and 3rd quarter (3/4 underneath).
+      { id: 'chacarera', label: 'Chacarera', slots: [X_(0.5), U_(0.3), D_(0.72), X_(0.74), D_(0.78), U_(0.34)] },
+      // Down, thumb, chasquido on the 4th eighth, thumb, and the 6th left silent.
+      { id: 'zamba', label: 'Zamba', slots: [D_(0.74), U_(0.28), D_(0.6), X_(0.7), D_(0.6), 0] },
+    ],
   };
   // "Un golpe" is the default; older saved settings move to it once.
   if (!comp.styles || comp.stylesVersion !== 2) { comp.styles = { 4: 'suave', 3: 'suave' }; comp.stylesVersion = 2; }
+  comp.styles[6] ||= 'suave';
   const style = () => STYLES[comp.meter].find(x => x.id === comp.styles[comp.meter]) || STYLES[comp.meter][0];
+  const slotsFor = (st, bar) => (st.alt && bar % 2 ? st.alt : st.slots);
+  const hits = slot => (!slot ? [] : Array.isArray(slot) ? slot : [slot]);
+
+  const beatsPerBar = () => (comp.meter === 6 ? 2 : comp.meter);
+  const slotsPerBeat = () => (comp.meter === 6 ? 3 : 2);
+  const meterLabel = () => (comp.meter === 6 ? '6/8' : `${comp.meter}/4`);
 
   const jitter = amount => (Math.random() - 0.5) * 2 * amount;
 
-  /** Slots until the next strum or bass hit, wrapping into the next bar. */
-  function slotsUntilNext(slots, from, kinds) {
-    for (let d = 1; d <= slots.length; d++) if (slots[(from + d) % slots.length] && kinds.includes(slots[(from + d) % slots.length].k)) return { d, wraps: from + d >= slots.length };
-    return { d: slots.length, wraps: true };
+  /** Slots until the next hit of the given kinds, looking into the next bar's slots. */
+  function slotsUntilNext(slots, after, from, kinds) {
+    const n = slots.length;
+    for (let d = 1; d <= n; d++) {
+      const j = from + d;
+      if (hits(j < n ? slots[j] : after[j - n]).some(x => kinds.includes(x.k))) return { d, wraps: j >= n };
+    }
+    return { d: n, wraps: true };
+  }
+
+  /**
+   * For an alternating bass: the chord's fifth on a bass string, else the fifth below the lowest
+   * note (what the thumb reaches on the next string down), else the next string up.
+   */
+  function altBass(notes, chord) {
+    const c = T.parseChordName(chord.name || '');
+    if (!c) return notes[Math.min(1, notes.length - 1)];
+    // The chord's own fifth: diminished in m7b5 and dim, augmented in aug.
+    const iv = T.QUALITY_BY_ID[c.quality].iv.find(i => i >= 6 && i <= 8) ?? 7;
+    const root = c.root;
+    const fifth = notes.slice(0, notes.length >= 5 ? 2 : 1).find(n => T.pc(n.m - root) === iv);
+    if (fifth) return fifth;
+    let m = notes[0].m - T.pc(notes[0].m - root - iv);
+    if (m < 40) m += 12;
+    return { m, s: null };
   }
 
   /** Events for one beat of the loop; used by live playback and by the audio and MIDI exports. */
   function beatEvents(s, t, withClick) {
-    const total = comp.bars.length * comp.meter;
+    const per = beatsPerBar(), sub = slotsPerBeat();
+    const total = comp.bars.length * per;
     const k = s % total;
-    const bar = Math.floor(k / comp.meter), beat = k % comp.meter;
-    const slotDur = 30 / comp.bpm;
+    const bar = Math.floor(k / per), beat = k % per;
+    const slotDur = 60 / comp.bpm / sub;
     const out = [];
     const chord = comp.bars[bar];
-    const nextEmpty = !comp.bars[(bar + 1) % comp.bars.length];
+    const nextBar = (bar + 1) % comp.bars.length;
+    const nextEmpty = !comp.bars[nextBar];
     if (chord) {
       const notes = notesOf(chord);
-      const slots = style().slots;
-      for (let h = 0; h < 2 && notes.length; h++) {
-        const i = beat * 2 + h;
-        const slot = slots[i];
-        if (!slot) continue;
-        // Small timing and loudness drift keeps it from sounding mechanical.
-        const time = t + h * slotDur + jitter(i === 0 ? 0.003 : 0.007);
-        const gain = slot.g * (0.92 + Math.random() * 0.14);
-        const remaining = (slots.length - i) * slotDur;
-        if (slot.k === 'X') {
-          out.push({ time, chuck: true, notes: notes.slice(-Math.max(3, notes.length - 1)), gain });
-        } else if (slot.k === 'D' || slot.k === 'U') {
-          const next = slotsUntilNext(slots, i, ['D', 'U', 'B', 'X']);
-          const ring = next.wraps && nextEmpty ? remaining + 2 : next.d * slotDur + 0.05;
-          // Lighter strokes catch fewer strings: soft downs skip the bass, ups only reach the top ones.
-          const set = slot.k === 'U' ? notes.slice(-Math.min(4, notes.length))
-            : slot.g < 0.6 ? notes.slice(-Math.max(3, notes.length - 2)) : notes;
-          // Harder strokes sweep faster: about 40-70 ms across six strings.
-          const gap = slot.k === 'U' ? 0.007 + Math.random() * 0.004 : 0.016 - slot.g * 0.008 + Math.random() * 0.003;
-          out.push({ time, notes: set, up: slot.k === 'U', gain, ring, gap });
-        } else if (slot.k === 'B') {
-          const n = slot.alt && notes.length > 1 ? notes[1] : notes[0];
-          const next = slotsUntilNext(slots, i, ['B']);
-          out.push({ time, notes: [n], gain, ring: next.wraps && nextEmpty ? remaining + 2 : next.d * slotDur + 0.1 });
-        } else {
-          const pick = { b: 0, b2: 1, r1: notes.length - 1, r2: notes.length - 2, r3: notes.length - 3 }[slot.r];
-          const n = notes[Math.max(0, Math.min(notes.length - 1, pick))];
-          out.push({ time, notes: [n], gain, ring: remaining + (nextEmpty ? 2 : 0.35) });
-        }
+      const st = style();
+      const slots = slotsFor(st, bar), after = slotsFor(st, nextBar);
+      for (let h = 0; h < sub && notes.length; h++) {
+        const i = beat * sub + h;
+        const swing = st.swing && h % 2 ? st.swing * slotDur : 0;
+        // The very first downbeat gets a chord even when the pattern leaves it to the thumb.
+        const extra = st.intro && s === 0 && h === 0 ? [st.intro] : [];
+        [...hits(slots[i]), ...extra].forEach(slot => {
+          // Small timing and loudness drift keeps it from sounding mechanical.
+          const time = t + h * slotDur + swing + jitter(i === 0 ? 0.003 : 0.007);
+          const gain = slot.g * (0.92 + Math.random() * 0.14);
+          const remaining = (slots.length - i) * slotDur;
+          const tone = st.tone;
+          if (slot.k === 'X') {
+            out.push({ time, chuck: true, notes: notes.slice(-Math.max(3, notes.length - 1)), gain });
+          } else if (slot.k === 'D' || slot.k === 'U') {
+            const next = slotsUntilNext(slots, after, i, ['D', 'U', 'B', 'X']);
+            const ring = slot.len ? slot.len * slotDur : next.wraps && nextEmpty ? remaining + 2 : next.d * slotDur + 0.05;
+            // Lighter strokes catch fewer strings: soft downs skip the bass, ups only reach the top ones.
+            const set = slot.k === 'U' ? notes.slice(-Math.min(4, notes.length))
+              : slot.g < 0.6 ? notes.slice(-Math.max(3, notes.length - 2)) : notes;
+            // Harder strokes sweep faster: about 40-70 ms across six strings.
+            const gap = slot.k === 'U' ? 0.007 + Math.random() * 0.004 : 0.016 - slot.g * 0.008 + Math.random() * 0.003;
+            out.push({ time, notes: set, up: slot.k === 'U', gain, ring, gap, tone });
+          } else if (slot.k === 'B') {
+            const n = slot.alt ? altBass(notes, chord) : notes[0];
+            const next = slotsUntilNext(slots, after, i, ['B']);
+            out.push({ time, notes: [n], gain, ring: next.wraps && nextEmpty ? remaining + 2 : next.d * slotDur + 0.1, tone });
+          } else if (slot.k === 'C') {
+            // Index, middle and ring pluck the top three strings at once (four voices with the
+            // thumb) and lift a little before the next pinch, as in João Gilberto's recordings.
+            const next = slotsUntilNext(slots, after, i, ['C']);
+            const from = slot.ant && !nextEmpty ? notesOf(comp.bars[nextBar]) : notes;
+            const set = from.slice(Math.max(1, from.length - 3));
+            const ring = next.wraps && nextEmpty ? remaining + 2 : next.d * slotDur * 0.8;
+            out.push({ time, notes: set, gain, ring, gap: 0.004 + Math.random() * 0.003, pick: false, tone });
+          } else {
+            const pick = { b: 0, b2: 1, r1: notes.length - 1, r2: notes.length - 2, r3: notes.length - 3 }[slot.r];
+            const n = notes[Math.max(0, Math.min(notes.length - 1, pick))];
+            out.push({ time, notes: [n], gain, ring: remaining + (nextEmpty ? 2 : 0.35), tone });
+          }
+        });
       }
     }
     if (withClick) out.push({ time: t, click: true, accent: beat === 0 });
@@ -510,7 +581,9 @@
     document.querySelectorAll('#comp-bars .bar').forEach(li => {
       const on = playing && playhead && +li.dataset.i === playhead.bar;
       li.classList.toggle('playing', !!on);
-      li.querySelectorAll('.beats i').forEach((dot, b) => dot.classList.toggle('on', !!on && b <= playhead.beat));
+      // In 6/8 each beat lights its three eighths.
+      const lit = (playhead?.beat ?? -1) + 1;
+      li.querySelectorAll('.beats i').forEach((dot, b) => dot.classList.toggle('on', !!on && b < lit * (comp.meter / beatsPerBar())));
     });
   }
 
@@ -603,7 +676,7 @@
     const cells = comp.bars.map(b => (b ? pretty(b.name) : '%'));
     const lines = [];
     for (let i = 0; i < cells.length; i += 4) lines.push('| ' + cells.slice(i, i + 4).join(' | ') + ' |');
-    return `${keyLabel()}, ${comp.meter}/4, ${comp.bpm} bpm\n${lines.join('\n')}`;
+    return `${keyLabel()}, ${meterLabel()}, ${comp.bpm} bpm\n${lines.join('\n')}`;
   }
 
   async function asSvg() {
@@ -620,7 +693,7 @@
     if (css) parts.push(`<style>${css}</style>`);
     if (bg !== 'transparent') parts.push(`<rect width="${W}" height="${H}" fill="${bg}"/>`);
     parts.push(`<text x="${pad}" y="${pad + 30}" font-size="34" font-weight="800" letter-spacing="-1" fill="${ink}">${keyLabel()}</text>`);
-    parts.push(`<text x="${W - pad}" y="${pad + 30}" font-size="20" font-weight="600" text-anchor="end" fill="${soft}">${comp.meter}/4, ${comp.bpm} bpm</text>`);
+    parts.push(`<text x="${W - pad}" y="${pad + 30}" font-size="20" font-weight="600" text-anchor="end" fill="${soft}">${meterLabel()}, ${comp.bpm} bpm</text>`);
     comp.bars.forEach((bar, i) => {
       const name = bar?.name;
       const x = pad + (i % cols) * (cellW + gap);
@@ -643,7 +716,7 @@
   }
 
   function asWav() {
-    const total = comp.bars.length * comp.meter;
+    const total = comp.bars.length * beatsPerBar();
     const beatDur = 60 / comp.bpm;
     const events = [];
     for (let s = 0; s < total; s++) events.push(...beatEvents(s, 0.05 + s * beatDur, false).out);
@@ -657,14 +730,16 @@
     const tpq = 480;
     const ev = [];
     const meta = (tick, bytes) => ev.push({ tick, bytes, order: 0 });
-    const us = Math.round(60e6 / comp.bpm);
+    // MIDI tempo counts quarter notes; a 6/8 beat is a dotted quarter.
+    const quarter = 60 / comp.bpm / (comp.meter === 6 ? 1.5 : 1);
+    const us = Math.round(quarter * 1e6);
     meta(0, [0xff, 0x51, 0x03, (us >> 16) & 0xff, (us >> 8) & 0xff, us & 0xff]);
-    meta(0, [0xff, 0x58, 0x04, comp.meter, 2, 24, 8]);
+    meta(0, comp.meter === 6 ? [0xff, 0x58, 0x04, 6, 3, 36, 8] : [0xff, 0x58, 0x04, comp.meter, 2, 24, 8]);
     meta(0, [0xc0, 25]); // acoustic steel guitar
     // Follow the strumming style; each stroke becomes notes that last as long as they ring.
     const beatDur = 60 / comp.bpm;
-    const toTick = sec => Math.max(0, Math.round((sec / beatDur) * tpq));
-    for (let st = 0; st < comp.bars.length * comp.meter; st++) {
+    const toTick = sec => Math.max(0, Math.round((sec / quarter) * tpq));
+    for (let st = 0; st < comp.bars.length * beatsPerBar(); st++) {
       beatEvents(st, st * beatDur, false).out.filter(e => !e.chuck).forEach(e => {
         const vel = Math.max(20, Math.min(120, Math.round(e.gain * 130)));
         const order = e.up ? e.notes.slice().reverse() : e.notes;
@@ -845,6 +920,81 @@
     }
   });
 
+  /* ---------- Library of progressions by genre ---------- */
+
+  const L = window.Library;
+  const lib = $('lib-dialog');
+  let libGenre = L.GENRES[0].id;
+
+  const transpose = (name, by) => {
+    const c = T.parseChordName(name);
+    return c && by ? T.chordName(c.root + by, c.quality) : name;
+  };
+  // With "my tonic" on, every progression moves to the composer's current tonic.
+  const libShift = item => ($('lib-keep').checked ? T.pc(comp.key - T.parseNote(item.k).pc) : 0);
+  const libChords = item => item.c.split(' ').map(n => transpose(n, libShift(item)));
+
+  function renderLibrary() {
+    const tabs = $('lib-genres');
+    tabs.innerHTML = '';
+    L.GENRES.forEach(g => {
+      const b = document.createElement('button');
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', String(g.id === libGenre));
+      b.textContent = g.label;
+      b.onclick = () => { libGenre = g.id; renderLibrary(); $('lib-list').scrollTop = 0; };
+      tabs.append(b);
+    });
+    $('lib-keep-label').textContent = `Pasar a mi tónica (${pretty(T.NOTES[comp.key])})`;
+    const list = $('lib-list');
+    list.innerHTML = '';
+    L.ITEMS.filter(x => x.g === libGenre).forEach(item => {
+      const li = document.createElement('li');
+      const b = document.createElement('button');
+      b.className = 'lib-item';
+      const key = `${pretty(T.NOTES[T.pc(T.parseNote(item.k).pc + libShift(item))])} ${item.m === 'major' ? 'mayor' : 'menor'}`;
+      const styleLabel = STYLES[item.t].find(x => x.id === item.st)?.label || '';
+      const chords = libChords(item);
+      b.innerHTML = `
+        <span class="lib-name">${item.n}</span>
+        <span class="lib-meta"><span>${key}</span><span>${item.t === 6 ? '6/8' : item.t + '/4'}</span><span>${item.bpm} bpm</span><span>${styleLabel}</span><span>${chords.length} compases</span></span>
+        <span class="lib-chords">${chords.map(pretty).join(' <i>·</i> ')}</span>`;
+      b.setAttribute('aria-label', `${item.n}, ${key}, ${chords.join(', ')}`);
+      b.onclick = () => loadItem(item);
+      li.append(b);
+      list.append(li);
+    });
+  }
+
+  /** Replace the composer's progression with a library one and play it; the toast can undo. */
+  function loadItem(item) {
+    const before = JSON.stringify({ key: comp.key, mode: comp.mode, meter: comp.meter, bpm: comp.bpm, bars: comp.bars, styles: comp.styles });
+    const chords = libChords(item);
+    stop();
+    comp.key = T.pc(T.parseNote(item.k).pc + libShift(item));
+    comp.mode = item.m;
+    comp.meter = item.t;
+    comp.bpm = item.bpm;
+    comp.styles[item.t] = item.st;
+    comp.bars = chords.slice(0, MAX_BARS).map(name => ({ name }));
+    selected = null;
+    lib.close();
+    render();
+    changed();
+    play();
+    A.toast(`${item.n}, ${meterLabel()} a ${item.bpm} bpm`, () => {
+      stop();
+      Object.assign(comp, JSON.parse(before));
+      render();
+      changed();
+    });
+  }
+
+  $('comp-lib').addEventListener('click', () => { renderLibrary(); lib.showModal(); });
+  $('lib-close').addEventListener('click', () => lib.close());
+  $('lib-keep').addEventListener('change', renderLibrary);
+  lib.addEventListener('click', e => { if (e.target === lib) lib.close(); });
+
   /* ---------- Link ---------- */
 
   function hash() {
@@ -860,7 +1010,7 @@
     const k = +q.get('k');
     if (k >= 0 && k < 12) comp.key = k;
     if (['major', 'minor'].includes(q.get('m'))) comp.mode = q.get('m');
-    if (['3', '4'].includes(q.get('t'))) comp.meter = +q.get('t');
+    if (['3', '4', '6'].includes(q.get('t'))) comp.meter = +q.get('t');
     const bpm = +q.get('bpm');
     if (bpm >= 40 && bpm <= 200) comp.bpm = bpm;
     const bars = q.get('s').split(',').slice(0, MAX_BARS).map(x => {

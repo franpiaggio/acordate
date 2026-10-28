@@ -268,7 +268,16 @@
    * Notes in string order (numbers, or { m, s } with the string index). Up-strums go high
    * to low and a bit faster; the first strings the pick meets sound strongest.
    */
-  function strumOn(c, dest, notes, when, { gain = 0.8, up = false, ring = 2.6, gap } = {}) {
+  function strumOn(c, dest, notes, when, { gain = 0.8, up = false, ring = 2.6, gap, pick = true, tone } = {}) {
+    // A gentle low-pass warms soft styles, like fingers instead of a pick.
+    if (tone) {
+      const f = c.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.value = tone;
+      f.Q.value = 0.5;
+      f.connect(dest);
+      dest = f;
+    }
     const order = up ? notes.slice().reverse() : notes;
     const step = gap ?? (up ? 0.009 : 0.013);
     let t = when;
@@ -278,7 +287,7 @@
       return v;
     });
     // A faint pick scrape gives the stroke its edge.
-    if (notes.length > 2) voices.push(burst(c, dest, when, { gain: gain * 0.05, freq: up ? 3200 : 2400, decay: 0.03 }));
+    if (pick && notes.length > 2) voices.push(burst(c, dest, when, { gain: gain * 0.05, freq: up ? 3200 : 2400, decay: 0.03 }));
     return voices;
   }
 
